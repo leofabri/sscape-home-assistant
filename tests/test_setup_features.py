@@ -14,6 +14,7 @@ from custom_components.sscape.api import (
     PermissionDenied,
     PlaceCatalog,
     PlaceSnapshot,
+    RateLimited,
     parse_snapshot,
 )
 
@@ -147,6 +148,39 @@ async def test_local_sensor_survives_cloud_outage_no_upload_and_unloads(hass, co
     await hass.async_block_till_done()
     assert hass.states.get(entity).state == "unavailable"
     assert await hass.config_entries.async_unload(config.entry_id)
+
+
+async def test_coordinate_rate_limit_preserves_server_retry_after(hass, config, provider, payload):
+    point = {
+        "id": "point-limit",
+        "name": "Local target",
+        "latitude": 45,
+        "longitude": 9,
+        "radius_km": 25,
+        "enabled": True,
+    }
+    hass.config_entries.async_update_entry(
+        config, options=dict(config.options) | {"coordinate_targets": [point]}
+    )
+    with patch(
+        "custom_components.sscape.api.SScapeClient.async_get_point",
+        AsyncMock(
+            return_value=PlaceSnapshot(
+                point["id"], point["name"], payload["states"][0]["state"]["briefing"], True
+            )
+        ),
+    ) as geo:
+        assert await hass.config_entries.async_setup(config.entry_id)
+        await hass.async_block_till_done()
+        parent = config.runtime_data
+        parent._point_cache.clear()
+        geo.side_effect = RateLimited(900)
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        with pytest.raises(UpdateFailed) as raised:
+            await parent._async_update_data()
+        assert raised.value.retry_after == 900
+        assert parent.failure_reason == "rate_limited" and not parent._point_cache
 
 
 @pytest.mark.parametrize("step", ["coordinate", "local_sensors", "notifications", "assist"])

@@ -4,7 +4,7 @@
 async def async_get_config_entry_diagnostics(hass, entry):
     coordinator = getattr(entry, "runtime_data", None)
     result = {
-        "integration_version": "0.5.0",
+        "integration_version": "0.5.1",
         "config_entry_state": entry.state.value,
         "runtime_available": coordinator is not None,
         "reauthentication_required": any(

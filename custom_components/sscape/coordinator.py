@@ -101,7 +101,7 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
                                 point, self.config_entry.data[CONF_ACCOUNT_ID]
                             )
                             self.point_failures.pop(point["id"], None)
-                        except AuthenticationError:
+                        except (AuthenticationError, RateLimited):
                             raise
                         except (CannotConnect, PermissionDenied) as error:
                             if isinstance(

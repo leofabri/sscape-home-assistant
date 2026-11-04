@@ -4,6 +4,12 @@ Un dispositivo per ogni luogo o punto geografico scelto, configurato dall’inte
 Assistant. Nessun YAML obbligatorio, nessuna porta da aprire, nessuna password
 dell’account da consegnare all’integrazione.
 
+## Aggiornamento 0.5.1
+
+Le richieste per coordinate rispettano anche il `Retry-After` ricevuto dal server.
+Un limite di quota non viene confuso con un semplice punto temporaneamente privo
+di dati. La 0.5.1 include tutte le funzioni descritte sotto.
+
 ## Novità della 0.5
 
 - **Coordinate**: latitudine, longitudine e raggio anche senza salvare un luogo
