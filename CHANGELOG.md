@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- The read-only briefing action now reports unavailable after a connection/authentication failure, even when a previously fetched assessment remains in memory. No stale actionable text is returned.
+- Added an actual Home Assistant service regression test for this outage path.
+
 ## 0.3.0
 
 - Place-scoped outbound push updates with reconnect, backoff and polling reconciliation. No inbound Home Assistant port or new broker.

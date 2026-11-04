@@ -35,8 +35,8 @@ def setup_actions(hass):
         raise ServiceValidationError("Select an active sScape device for an imported place")
 
     async def briefing(call):
-        _, _, place = selected_place(call.data["device_id"])
-        if not place.is_fresh():
+        _, parent, place = selected_place(call.data["device_id"])
+        if not parent.last_update_success or not place.is_fresh():
             return {"available": False, "reason": "assessment_unavailable"}
         return {
             "available": True,

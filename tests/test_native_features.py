@@ -9,6 +9,7 @@ from homeassistant.core import Context
 from homeassistant.exceptions import ServiceValidationError, Unauthorized
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sscape.api import PlaceCatalog, parse_snapshot
@@ -95,6 +96,11 @@ async def test_dashboard_and_briefing_actions_are_read_only_and_scope_checked(ha
         "sscape", "get_briefing", {"device_id": risk.device_id}, blocking=True, return_response=True
     )
     assert briefing["available"] and briefing["risk_level"] == "moderate"
+    integration.runtime_data.async_set_update_error(UpdateFailed("Synthetic outage"))
+    offline = await hass.services.async_call(
+        "sscape", "get_briefing", {"device_id": risk.device_id}, blocking=True, return_response=True
+    )
+    assert offline == {"available": False, "reason": "assessment_unavailable"}
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
             "sscape",
