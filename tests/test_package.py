@@ -48,6 +48,7 @@ def test_translations_and_manifests():
     manifest = json.loads((component / "manifest.json").read_text())
     assert manifest["domain"] == "sscape" and manifest["version"] == "0.1.0"
     assert manifest["config_flow"] and manifest["requirements"] == []
+    assert manifest["categories"] == ["weather_alerts"]
     assert manifest["documentation"] == "https://github.com/leofabri/sscape-home-assistant#readme"
     assert manifest["issue_tracker"] == "https://github.com/leofabri/sscape-home-assistant/issues"
     assert Path(component / "__init__.py").is_file()

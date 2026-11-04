@@ -1,6 +1,7 @@
 {
   "domain": "sscape",
   "name": "sScape",
+  "categories": ["weather_alerts"],
   "codeowners": ["@leofabri"],
   "config_flow": true,
   "documentation": "https://github.com/leofabri/sscape-home-assistant#readme",
