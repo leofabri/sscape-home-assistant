@@ -1,0 +1,49 @@
+{
+  "title": "sScape",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect sScape",
+        "description": "Create an API key in your sScape profile with places:read access. API access requires a compatible account plan. You must have at least one saved place. No Home Assistant ports need to be opened.",
+        "data": {"host": "sScape server", "api_key": "API key"},
+        "data_description": {"host": "Full origin, for example https://sscape.leofabri.com. Do not add /api/v1."}
+      },
+      "reauth_confirm": {
+        "title": "Reconnect sScape",
+        "description": "Enter a new API key with places:read from the same sScape account. Existing devices and automations will be preserved.",
+        "data": {"api_key": "New API key"}
+      }
+    },
+    "error": {
+      "invalid_host": "Enter a full HTTPS server origin without a path, query or credentials. HTTP is only allowed on a local network.",
+      "invalid_auth": "The API key is invalid, revoked or expired.",
+      "access_denied": "Check that the key has places:read access and that your account plan includes API access.",
+      "cannot_connect": "Cannot read the sScape API. Check the server address and try again later.",
+      "no_places": "Add at least one followed place in sScape, then try again.",
+      "wrong_account": "This key belongs to a different account. Use a key from the originally linked account."
+    },
+    "abort": {
+      "already_configured": "This sScape account is already configured on this server.",
+      "reauth_successful": "The API key was updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Places and updates",
+        "description": "Leave the place selection empty to follow all saved places, including future additions. Select places to limit this integration. Each update uses one shared API request.",
+        "data": {"places": "Followed places", "update_interval": "Update interval (seconds, 60–900)"}
+      }
+    },
+    "error": {"invalid_places": "Select only places belonging to this account."}
+  },
+  "entity": {
+    "sensor": {
+      "risk": {"name": "Risk", "state": {"low": "Low", "moderate": "Moderate", "high": "High", "severe": "Severe"}},
+      "situation": {"name": "Situation"},
+      "eta": {"name": "Estimated storm arrival"},
+      "updated": {"name": "Analysis updated"}
+    },
+    "binary_sensor": {"analysis_stale": {"name": "Analysis unavailable or expired"}}
+  }
+}

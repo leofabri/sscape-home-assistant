@@ -1,0 +1,12 @@
+{
+  "domain": "sscape",
+  "name": "sScape",
+  "codeowners": ["@leofabri"],
+  "config_flow": true,
+  "documentation": "https://github.com/leofabri/sscape-home-assistant#readme",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/leofabri/sscape-home-assistant/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

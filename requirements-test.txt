@@ -1,0 +1,4 @@
+# Python 3.14. Includes Home Assistant 2026.10.4. No runtime pip dependencies.
+pytest-homeassistant-custom-component==0.13.375
+pytest-cov==7.1.0
+ruff==0.17.3

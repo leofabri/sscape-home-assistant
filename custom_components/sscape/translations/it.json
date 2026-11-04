@@ -1,0 +1,49 @@
+{
+  "title": "sScape",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Collega sScape",
+        "description": "Crea una chiave API nel tuo profilo sScape con il permesso places:read. Serve un piano che includa l’accesso API e almeno un luogo seguito. Non devi aprire porte di Home Assistant.",
+        "data": {"host": "Server sScape", "api_key": "Chiave API"},
+        "data_description": {"host": "Indirizzo completo, ad esempio https://sscape.leofabri.com. Non aggiungere /api/v1."}
+      },
+      "reauth_confirm": {
+        "title": "Ricollega sScape",
+        "description": "Inserisci una nuova chiave con il permesso places:read dello stesso account sScape. Dispositivi e automazioni esistenti saranno mantenuti.",
+        "data": {"api_key": "Nuova chiave API"}
+      }
+    },
+    "error": {
+      "invalid_host": "Inserisci l’indirizzo completo HTTPS del server, senza percorsi, parametri o credenziali. HTTP è consentito solo in rete locale.",
+      "invalid_auth": "La chiave API non è valida, è stata revocata oppure è scaduta.",
+      "access_denied": "Verifica che la chiave abbia il permesso places:read e che il piano includa l’accesso API.",
+      "cannot_connect": "Impossibile leggere le API sScape. Verifica l’indirizzo del server e riprova più tardi.",
+      "no_places": "Aggiungi almeno un luogo seguito in sScape, poi riprova.",
+      "wrong_account": "Questa chiave appartiene a un altro account. Usa una chiave dell’account già collegato."
+    },
+    "abort": {
+      "already_configured": "Questo account sScape è già configurato su questo server.",
+      "reauth_successful": "La chiave API è stata aggiornata."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Luoghi e aggiornamenti",
+        "description": "Lascia vuota la selezione per seguire tutti i luoghi, compresi quelli che aggiungerai. Seleziona alcuni luoghi per limitare l’integrazione. Ogni aggiornamento usa una sola richiesta API condivisa.",
+        "data": {"places": "Luoghi seguiti", "update_interval": "Intervallo di aggiornamento (secondi, 60–900)"}
+      }
+    },
+    "error": {"invalid_places": "Seleziona soltanto luoghi appartenenti a questo account."}
+  },
+  "entity": {
+    "sensor": {
+      "risk": {"name": "Rischio", "state": {"low": "Basso", "moderate": "Moderato", "high": "Alto", "severe": "Severo"}},
+      "situation": {"name": "Situazione"},
+      "eta": {"name": "Arrivo stimato del temporale"},
+      "updated": {"name": "Analisi aggiornata"}
+    },
+    "binary_sensor": {"analysis_stale": {"name": "Analisi non disponibile o scaduta"}}
+  }
+}
