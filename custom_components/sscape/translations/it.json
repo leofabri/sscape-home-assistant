@@ -5,13 +5,28 @@
       "user": {
         "title": "Collega sScape",
         "description": "Crea una chiave API nel tuo profilo sScape con il permesso places:read. Serve un piano che includa l’accesso API e almeno un luogo seguito. Non devi aprire porte di Home Assistant.",
-        "data": {"host": "Server sScape", "api_key": "Chiave API"},
-        "data_description": {"host": "Indirizzo completo, ad esempio https://sscape.leofabri.com. Non aggiungere /api/v1."}
+        "data": {
+          "host": "Server sScape",
+          "api_key": "Chiave API"
+        },
+        "data_description": {
+          "host": "Indirizzo completo, ad esempio https://sscape.leofabri.com. Non aggiungere /api/v1."
+        }
       },
       "reauth_confirm": {
         "title": "Ricollega sScape",
         "description": "Inserisci una nuova chiave con il permesso places:read dello stesso account sScape. Dispositivi e automazioni esistenti saranno mantenuti.",
-        "data": {"api_key": "Nuova chiave API"}
+        "data": {
+          "api_key": "Nuova chiave API"
+        }
+      },
+      "places": {
+        "title": "Quali luoghi vuoi in Home Assistant?",
+        "description": "Scegli soltanto i luoghi da importare. «Segui tutti» include anche i luoghi futuri accessibili con questa chiave; è facoltativo. I luoghi esclusi restano nell’app sScape.",
+        "data": {
+          "places": "Luoghi da importare",
+          "follow_all_places": "Segui tutti i luoghi autorizzati, anche futuri"
+        }
       }
     },
     "error": {
@@ -20,7 +35,10 @@
       "access_denied": "Verifica che la chiave abbia il permesso places:read e che il piano includa l’accesso API.",
       "cannot_connect": "Impossibile leggere le API sScape. Verifica l’indirizzo del server e riprova più tardi.",
       "no_places": "Aggiungi almeno un luogo seguito in sScape, poi riprova.",
-      "wrong_account": "Questa chiave appartiene a un altro account. Usa una chiave dell’account già collegato."
+      "wrong_account": "Questa chiave appartiene a un altro account. Usa una chiave dell’account già collegato.",
+      "select_places": "Seleziona almeno un luogo oppure scegli esplicitamente «Segui tutti».",
+      "invalid_places": "Scegli soltanto luoghi autorizzati da questa chiave.",
+      "server_update_required": "Il server sScape deve essere aggiornato per supportare la selezione sicura dei luoghi."
     },
     "abort": {
       "already_configured": "Questo account sScape è già configurato su questo server.",
@@ -31,19 +49,80 @@
     "step": {
       "init": {
         "title": "Luoghi e aggiornamenti",
-        "description": "Lascia vuota la selezione per seguire tutti i luoghi, compresi quelli che aggiungerai. Seleziona alcuni luoghi per limitare l’integrazione. Ogni aggiornamento usa una sola richiesta API condivisa.",
-        "data": {"places": "Luoghi seguiti", "update_interval": "Intervallo di aggiornamento (secondi, 60–900)"}
+        "description": "Scegli i luoghi da importare. Se la selezione è vuota e «Segui tutti» è disattivato, non viene importato nulla. I luoghi esclusi vengono disattivati senza cancellarne la cronologia.",
+        "data": {
+          "places": "Luoghi seguiti",
+          "update_interval": "Intervallo di aggiornamento (secondi, 60–900)",
+          "follow_all_places": "Segui tutti i luoghi autorizzati, anche futuri",
+          "weather_enabled": "Meteo e previsioni orarie"
+        }
       }
     },
-    "error": {"invalid_places": "Seleziona soltanto luoghi appartenenti a questo account."}
+    "error": {
+      "invalid_places": "Seleziona soltanto luoghi appartenenti a questo account."
+    },
+    "abort": {
+      "invalid_auth": "Verifica la chiave API e i luoghi autorizzati.",
+      "cannot_connect": "Server sScape non raggiungibile. Riprova più tardi."
+    }
   },
   "entity": {
     "sensor": {
-      "risk": {"name": "Rischio", "state": {"low": "Basso", "moderate": "Moderato", "high": "Alto", "severe": "Severo"}},
-      "situation": {"name": "Situazione"},
-      "eta": {"name": "Arrivo stimato del temporale"},
-      "updated": {"name": "Analisi aggiornata"}
+      "risk": {
+        "name": "Rischio",
+        "state": {
+          "low": "Basso",
+          "moderate": "Moderato",
+          "high": "Alto",
+          "severe": "Severo"
+        }
+      },
+      "situation": {
+        "name": "Situazione"
+      },
+      "eta": {
+        "name": "Arrivo stimato del temporale"
+      },
+      "updated": {
+        "name": "Analisi aggiornata"
+      },
+      "lightning_count": {
+        "name": "Rilevamenti elettrici (20 min)"
+      },
+      "lightning_distance": {
+        "name": "Distanza dal rilevamento elettrico più vicino"
+      },
+      "earthquake_count": {
+        "name": "Sismi nel raggio di ricerca (24 h)"
+      }
     },
-    "binary_sensor": {"analysis_stale": {"name": "Analisi non disponibile o scaduta"}}
+    "binary_sensor": {
+      "analysis_stale": {
+        "name": "Analisi non disponibile o scaduta"
+      },
+      "storm_approach": {
+        "name": "Temporale in avvicinamento"
+      },
+      "lightning_detected": {
+        "name": "Rilevamenti elettrici nel raggio seguito"
+      },
+      "official_warning": {
+        "name": "Allerta ufficiale locale nei dati disponibili"
+      },
+      "wildfire_detected": {
+        "name": "Rilevamenti termici nelle vicinanze"
+      },
+      "earthquake_activity": {
+        "name": "Sismi recenti nel raggio di ricerca"
+      },
+      "hail_reported": {
+        "name": "Segnalazioni recenti di grandine"
+      }
+    },
+    "weather": {
+      "forecast": {
+        "name": "Meteo stimato e previsioni"
+      }
+    }
   }
 }

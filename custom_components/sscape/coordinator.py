@@ -1,5 +1,6 @@
 """Shared polling, outage handling and strict account boundary."""
 
+import asyncio
 import logging
 from datetime import timedelta
 
@@ -12,12 +13,15 @@ from .api import (
     AuthenticationError,
     CannotConnect,
     PermissionDenied,
+    PlaceCatalog,
     RateLimited,
     SScapeClient,
 )
 from .const import (
     CONF_ACCOUNT_ID,
+    CONF_FOLLOW_ALL,
     CONF_INTERVAL,
+    CONF_PLACES,
     DEFAULT_INTERVAL,
     DOMAIN,
     MAX_INTERVAL,
@@ -35,6 +39,9 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
         interval = entry.options.get(CONF_INTERVAL, DEFAULT_INTERVAL)
         self._base_interval = min(MAX_INTERVAL, max(MIN_INTERVAL, interval))
         self._failures = 0
+        self.catalog: PlaceCatalog | None = None
+        self.weather_coordinators = {}
+        self.weather_slots = asyncio.Semaphore(2)
         super().__init__(
             hass,
             _LOGGER,
@@ -45,7 +52,16 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
 
     async def _async_update_data(self) -> AccountSnapshot:
         try:
-            data = await self.client.async_get_snapshot()
+            if self.catalog is None:
+                self.catalog = await self.client.async_get_catalog()
+                if self.catalog.account_id != self.config_entry.data[CONF_ACCOUNT_ID]:
+                    raise AuthenticationError("API key belongs to another account")
+            selected = (
+                None
+                if self.config_entry.options.get(CONF_FOLLOW_ALL, False)
+                else self.config_entry.options.get(CONF_PLACES, [])
+            )
+            data = await self.client.async_get_snapshot(selected)
             if data.account_id and data.account_id != self.config_entry.data[CONF_ACCOUNT_ID]:
                 raise AuthenticationError("API key belongs to another account")
         except (AuthenticationError, PermissionDenied):

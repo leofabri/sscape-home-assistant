@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from ipaddress import ip_address
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
@@ -34,6 +34,10 @@ class CannotConnect(SScapeError):
 
 class ProtocolError(CannotConnect):
     """Unexpected or ambiguous API response."""
+
+
+class ServerUpgradeRequired(CannotConnect):
+    """The server cannot guarantee explicit place selection yet."""
 
 
 class RateLimited(CannotConnect):
@@ -156,6 +160,40 @@ class PlaceSnapshot:
         )
         return {key: text for key in fields if (text := _text(self.briefing.get(key)))}
 
+    def metric(self, key):
+        value = self.briefing.get(key)
+        return (
+            value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
+        )
+
+    def signal(self, key):
+        if key == "storm_approach":
+            phase = self.briefing.get("situation_phase")
+            return (
+                phase == "approach" if phase in ("quiet", "watch", "approach", "impact") else None
+            )
+        field = {
+            "lightning_detected": "lightning_count_20m",
+            "official_warning": "official_alert_count",
+            "earthquake_activity": "earthquakes_24h",
+            "hail_reported": "hail_confirmations_20m",
+        }.get(key)
+        if field:
+            count = self.metric(field)
+            return count > 0 if count is not None else None
+        if key == "wildfire_detected":
+            signals = self.briefing.get("environmental_signals")
+            if not isinstance(signals, list):
+                return None
+            # This catalogue is capped to a few recent environmental signals;
+            # absence cannot prove that the wider fire feed is clear/complete.
+            return (
+                True
+                if any(isinstance(item, dict) and item.get("kind") == "fire" for item in signals)
+                else None
+            )
+        return None
+
 
 @dataclass(frozen=True)
 class AccountSnapshot:
@@ -165,13 +203,25 @@ class AccountSnapshot:
     places: dict[str, PlaceSnapshot]
 
 
+@dataclass(frozen=True)
+class PlaceCatalog:
+    """Only authorized place IDs/names, with no coordinates or assessments."""
+
+    account_id: str
+    places: dict[str, str]
+    restricted: bool
+
+
 def parse_snapshot(body: Any) -> AccountSnapshot:
     """Validate envelope and ownership before creating any HA entities."""
     if not isinstance(body, dict) or not isinstance(body.get("states"), list):
         raise ProtocolError("Invalid saved-place response")
     if len(body["states"]) > 1000:
         raise ProtocolError("Saved-place response is too large")
-    owners: set[str] = set()
+    owner = body.get("account_id")
+    if owner is not None and (not isinstance(owner, str) or not owner or "|" in owner):
+        raise ProtocolError("Invalid account identity")
+    owners: set[str] = {owner} if owner else set()
     places: dict[str, PlaceSnapshot] = {}
     for row in body["states"]:
         if not isinstance(row, dict) or not isinstance(row.get("place"), dict):
@@ -223,11 +273,68 @@ class SScapeClient:
         self._session = session
         self._language = "it" if language.startswith("it") else "en"
 
-    async def async_get_snapshot(self) -> AccountSnapshot:
+    async def async_get_catalog(self) -> PlaceCatalog:
+        body = await self._async_get("/api/v1/integrations/places", params={"view": "selection"})
+        if not isinstance(body, dict) or body.get("contract_version") != "home-assistant.v2":
+            raise ServerUpgradeRequired(
+                "Update the sScape server before using this integration version"
+            )
+        owner, rows = body.get("account_id"), body.get("places")
+        if (
+            not isinstance(owner, str)
+            or not owner
+            or len(owner) > 256
+            or "|" in owner
+            or not isinstance(rows, list)
+            or len(rows) > 1000
+        ):
+            raise ProtocolError("Invalid place catalogue")
+        choices = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                raise ProtocolError("Invalid place catalogue")
+            place_id, name = row.get("id"), row.get("name")
+            if (
+                not isinstance(place_id, str)
+                or not place_id
+                or len(place_id) > 256
+                or any(char.isspace() or char in "/|,?#" for char in place_id)
+                or not isinstance(name, str)
+                or place_id in choices
+            ):
+                raise ProtocolError("Invalid place catalogue")
+            choices[place_id] = name[:255]
+        return PlaceCatalog(owner, choices, body.get("places_restricted") is True)
+
+    async def async_get_snapshot(self, place_ids: list[str] | None = None) -> AccountSnapshot:
+        if place_ids == []:
+            return AccountSnapshot(None, {})
+        params = {"place_ids": ",".join(place_ids)} if place_ids is not None else None
+        result = parse_snapshot(
+            await self._async_get("/api/v1/integrations/places/states", params=params)
+        )
+        if place_ids is not None and not set(result.places).issubset(place_ids):
+            raise ProtocolError("Server returned an unselected place")
+        return result
+
+    async def async_get_weather(self, place_id: str) -> dict[str, Any]:
+        body = await self._async_get(
+            f"/api/v1/integrations/places/{quote(place_id, safe='')}/weather"
+        )
+        if (
+            not isinstance(body, dict)
+            or body.get("place_id") != place_id
+            or not isinstance(body.get("forecast"), dict)
+        ):
+            raise ProtocolError("Invalid weather response")
+        return body["forecast"]
+
+    async def _async_get(self, path: str, *, params: dict[str, str] | None = None) -> Any:
         """Do not follow redirects that could forward X-API-Key to another host."""
         try:
             async with self._session.get(
-                f"{self.host}/api/v1/integrations/places/states",
+                f"{self.host}{path}",
+                params=params,
                 headers={
                     "X-API-Key": self._api_key,
                     "Accept": "application/json",
@@ -249,7 +356,7 @@ class SScapeClient:
                     chunks.extend(chunk)
                     if len(chunks) > MAX_BODY_BYTES:
                         raise ProtocolError("Response exceeds size limit")
-                return parse_snapshot(json.loads(chunks))
+                return json.loads(chunks)
         except (TimeoutError, ClientError):
             raise CannotConnect("Connection failed or timed out") from None
         except (ValueError, UnicodeError):

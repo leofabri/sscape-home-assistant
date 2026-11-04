@@ -17,6 +17,7 @@ from custom_components.sscape.api import (
     AuthenticationError,
     CannotConnect,
     PermissionDenied,
+    PlaceCatalog,
     RateLimited,
     parse_snapshot,
 )
@@ -30,15 +31,31 @@ def client(payload):
         "custom_components.sscape.api.SScapeClient.async_get_snapshot",
         new=AsyncMock(return_value=parse_snapshot(payload)),
     ) as mock:
-        yield mock
+
+        async def catalog():
+            if isinstance(mock.side_effect, Exception):
+                raise mock.side_effect
+            data = mock.return_value
+            return PlaceCatalog(
+                data.account_id or "account-1",
+                {key: value.name for key, value in data.places.items()},
+                False,
+            )
+
+        with patch(
+            "custom_components.sscape.api.SScapeClient.async_get_catalog", side_effect=catalog
+        ):
+            yield mock
 
 
 @pytest.fixture
 def entry(hass):
     config = MockConfigEntry(
         domain=DOMAIN,
+        version=2,
         title="sScape",
         unique_id="https://example.com|account-1",
+        options={"follow_all_places": True, "weather_enabled": False},
         data={
             CONF_HOST: "https://example.com",
             CONF_API_KEY: "fictional-key",
@@ -59,6 +76,10 @@ async def test_user_flow(hass, client):
                 CONF_HOST: "https://example.com",
                 CONF_API_KEY: "fictional-key",
             },
+        )
+        assert result["step_id"] == "places"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"places": ["place-1"], "follow_all_places": False}
         )
         assert result["type"] == "create_entry"
         assert result["data"]["account_id"] == "account-1"
@@ -215,11 +236,18 @@ async def test_options_selection_interval_and_reload(hass, entry, client):
             {
                 "places": ["place-1"],
                 "update_interval": 180,
+                "follow_all_places": False,
+                "weather_enabled": False,
             },
         )
         await hass.async_block_till_done()
     assert result["type"] == "create_entry"
-    assert entry.options == {"places": ["place-1"], "update_interval": 180}
+    assert entry.options == {
+        "places": ["place-1"],
+        "update_interval": 180,
+        "follow_all_places": False,
+        "weather_enabled": False,
+    }
     reload.assert_awaited_once_with(entry.entry_id)
 
 

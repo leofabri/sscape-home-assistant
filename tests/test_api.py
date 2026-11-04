@@ -183,6 +183,15 @@ def test_current_briefing_not_older_persisted_state(payload):
     assert parse_snapshot(payload).places["place-1"].risk_level == "high"
 
 
+def test_new_place_current_briefing_without_persisted_transition(payload):
+    row = payload["states"][0]
+    row["current_briefing"] = row.pop("state")["briefing"]
+    row["live_state_available"] = False
+    place = parse_snapshot(payload).places["place-1"]
+    assert place.is_fresh()
+    assert place.risk_level == "moderate"
+
+
 @pytest.mark.parametrize("value", [None, "", "unknown", True])
 def test_unrecognized_risk_not_low(payload, value):
     payload["states"][0]["state"]["briefing"]["risk_level"] = value

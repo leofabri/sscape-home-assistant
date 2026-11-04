@@ -8,8 +8,19 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import PlaceSnapshot
-from .const import CONF_PLACES, DOMAIN
+from .const import CONF_FOLLOW_ALL, CONF_PLACES, DOMAIN
 from .coordinator import SScapeCoordinator
+
+
+def place_device_info(coordinator, place):
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"{coordinator.config_entry.unique_id}|{place.place_id}")},
+        name=place.name,
+        manufacturer="sScape",
+        model="Monitored place",
+        entry_type=DeviceEntryType.SERVICE,
+        configuration_url=f"{coordinator.client.host}/profile",
+    )
 
 
 class SScapeEntity(CoordinatorEntity[SScapeCoordinator]):
@@ -23,14 +34,7 @@ class SScapeEntity(CoordinatorEntity[SScapeCoordinator]):
         self.place_id = place.place_id
         identity = f"{coordinator.config_entry.unique_id}|{self.place_id}"
         self._attr_unique_id = f"{identity}|{key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, identity)},
-            name=place.name,
-            manufacturer="sScape",
-            model="Monitored place",
-            entry_type=DeviceEntryType.SERVICE,
-            configuration_url=f"{coordinator.client.host}/profile",
-        )
+        self._attr_device_info = place_device_info(coordinator, place)
 
     @property
     def place(self) -> PlaceSnapshot | None:
@@ -58,10 +62,11 @@ def async_watch_places(hass, entry, async_add_entities, factory: Callable) -> No
 
     @callback
     def add_new_places() -> None:
-        selected = entry.options.get(CONF_PLACES, [])  # empty means all, including future places
+        selected = entry.options.get(CONF_PLACES, [])
+        follow_all = entry.options.get(CONF_FOLLOW_ALL, False)
         new = []
         for place_id, place in coordinator.data.places.items():
-            if place_id not in known and (not selected or place_id in selected):
+            if place_id not in known and (follow_all or place_id in selected):
                 known.add(place_id)
                 new.extend(factory(coordinator, place))
         if new:

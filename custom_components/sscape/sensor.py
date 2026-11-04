@@ -1,7 +1,7 @@
 """Useful assessment sensors without inventing meteorological measurements."""
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
-from homeassistant.const import EntityCategory, UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfLength, UnitOfTime
 
 from .const import RISK_LEVELS
 from .entity import SScapeEntity, async_watch_places
@@ -31,6 +31,26 @@ DESCRIPTIONS = (
         icon="mdi:update",
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="lightning_count",
+        translation_key="lightning_count",
+        icon="mdi:lightning-bolt",
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="lightning_distance",
+        translation_key="lightning_distance",
+        icon="mdi:map-marker-distance",
+        device_class=SensorDeviceClass.DISTANCE,
+        native_unit_of_measurement=UnitOfLength.KILOMETERS,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="earthquake_count",
+        translation_key="earthquake_count",
+        icon="mdi:pulse",
+        entity_registry_enabled_default=False,
     ),
 )
 
@@ -62,6 +82,9 @@ class SScapeSensor(SScapeEntity, SensorEntity):
             "situation": place.headline,
             "eta": place.eta_minutes,
             "updated": place.updated_at,
+            "lightning_count": place.metric("lightning_count_20m"),
+            "lightning_distance": place.metric("nearest_lightning_distance_km"),
+            "earthquake_count": place.metric("earthquakes_24h"),
         }[self.entity_description.key]
 
     @property

@@ -1,0 +1,77 @@
+blueprint:
+  name: sScape · Cambi di rischio per un luogo
+  description: >-
+    Esegue le azioni scelte quando una valutazione valida peggiora e,
+    facoltativamente, quando torna bassa per alcuni minuti. Ignora riavvii,
+    valori non disponibili e aggiornamenti degli attributi senza cambio di rischio.
+    Non sostituisce gli avvisi ufficiali. Nessuna azione viene preconfigurata.
+    Nelle azioni puoi usare sscape_risk, sscape_headline e sscape_recommended_action.
+  domain: automation
+  homeassistant:
+    min_version: 2026.2.3
+  input:
+    risk_sensor:
+      name: Sensore Rischio del luogo
+      selector:
+        entity:
+          filter:
+            - integration: sscape
+              domain: sensor
+    notify_worsening:
+      name: Azioni quando il rischio aumenta
+      selector:
+        action: {}
+    notify_cleared:
+      name: Azioni quando la valutazione torna bassa
+      description: Facoltative; rischio basso non equivale a garanzia di sicurezza.
+      default: []
+      selector:
+        action: {}
+    confirmation_minutes:
+      name: Minuti di conferma del ritorno a rischio basso
+      default: 5
+      selector:
+        number:
+          min: 2
+          max: 30
+          unit_of_measurement: min
+          mode: box
+mode: single
+max_exceeded: silent
+triggers:
+  - trigger: state
+    entity_id: !input risk_sensor
+    id: changed
+  - trigger: state
+    entity_id: !input risk_sensor
+    to: low
+    for:
+      minutes: !input confirmation_minutes
+    id: cleared
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and trigger.to_state is not none
+         and trigger.from_state.state in ['low','moderate','high','severe']
+         and trigger.to_state.state in ['low','moderate','high','severe']
+         and trigger.from_state.state != trigger.to_state.state }}
+actions:
+  - variables:
+      sscape_risk: "{{ trigger.to_state.state }}"
+      sscape_headline: "{{ trigger.to_state.attributes.get('headline','') }}"
+      sscape_recommended_action: "{{ trigger.to_state.attributes.get('recommended_action','') }}"
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: changed
+          - condition: template
+            value_template: >-
+              {% set rank = {'low':0,'moderate':1,'high':2,'severe':3} %}
+              {{ rank[trigger.to_state.state] > rank[trigger.from_state.state] }}
+        sequence: !input notify_worsening
+      - conditions:
+          - condition: trigger
+            id: cleared
+          - condition: template
+            value_template: "{{ trigger.to_state.state == 'low' }}"
+        sequence: !input notify_cleared

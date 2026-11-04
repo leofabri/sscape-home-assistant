@@ -27,13 +27,26 @@ async def test_http_to_home_assistant(hass, aiohttp_server, payload, socket_enab
 
     app = web.Application()
     app.router.add_get("/api/v1/integrations/places/states", states)
+
+    async def catalog(request):
+        return web.json_response(
+            {
+                "contract_version": "home-assistant.v2",
+                "account_id": "account-1",
+                "places": [{"id": "place-1", "name": "Test place"}],
+            }
+        )
+
+    app.router.add_get("/api/v1/integrations/places", catalog)
     server = await aiohttp_server(app)
     host = str(server.make_url("/")).rstrip("/")
     identity = f"{host}|account-1"
     entry = MockConfigEntry(
         domain=DOMAIN,
+        version=2,
         title="sScape",
         unique_id=identity,
+        options={"places": ["place-1"], "follow_all_places": False, "weather_enabled": False},
         data={
             CONF_HOST: host,
             CONF_API_KEY: "fictional-key",

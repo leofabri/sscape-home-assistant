@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+- Explicit place selection during setup; an empty selection means no places.
+- Optional follow-all mode, including future places accessible to the API key.
+- Migration freezes previously imported places; stable entity IDs and user-disabled preferences are preserved.
+- Server-enforced, place-restricted API keys, configurable in the sScape profile.
+- Native weather entity with hourly model forecasts, source attribution and original valid times.
+- Storm-approach and lightning-activity binary sensors; optional official-warning, thermal-detection, earthquake and reported-hail sensors.
+- Optional lightning counts/distances and recent-earthquake counts; absent evidence stays unknown.
+- Importable risk-change automation blueprint, including confirmed recovery and no false all-clear after an outage.
+- Current assessments no longer depend on the last persisted notification transition (server update required).
+
+Requires the sScape backend with the `home-assistant.v2` selection contract.
+Update HACS, restart Home Assistant, then review the integration options.
+
 ## 0.1.0
 
 First public custom integration release.

@@ -5,13 +5,28 @@
       "user": {
         "title": "Connect sScape",
         "description": "Create an API key in your sScape profile with places:read access. API access requires a compatible account plan. You must have at least one saved place. No Home Assistant ports need to be opened.",
-        "data": {"host": "sScape server", "api_key": "API key"},
-        "data_description": {"host": "Full origin, for example https://sscape.leofabri.com. Do not add /api/v1."}
+        "data": {
+          "host": "sScape server",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "host": "Full origin, for example https://sscape.leofabri.com. Do not add /api/v1."
+        }
       },
       "reauth_confirm": {
         "title": "Reconnect sScape",
         "description": "Enter a new API key with places:read from the same sScape account. Existing devices and automations will be preserved.",
-        "data": {"api_key": "New API key"}
+        "data": {
+          "api_key": "New API key"
+        }
+      },
+      "places": {
+        "title": "Which places belong in Home Assistant?",
+        "description": "Select only the places to import. Follow all also includes future places accessible with this key; it is optional. Excluded places remain in the sScape app.",
+        "data": {
+          "places": "Places to import",
+          "follow_all_places": "Follow all authorized places, including future additions"
+        }
       }
     },
     "error": {
@@ -20,7 +35,10 @@
       "access_denied": "Check that the key has places:read access and that your account plan includes API access.",
       "cannot_connect": "Cannot read the sScape API. Check the server address and try again later.",
       "no_places": "Add at least one followed place in sScape, then try again.",
-      "wrong_account": "This key belongs to a different account. Use a key from the originally linked account."
+      "wrong_account": "This key belongs to a different account. Use a key from the originally linked account.",
+      "select_places": "Select a place or explicitly choose Follow all.",
+      "invalid_places": "Select only places authorized by this key.",
+      "server_update_required": "Update the sScape server to support explicit place selection."
     },
     "abort": {
       "already_configured": "This sScape account is already configured on this server.",
@@ -31,19 +49,80 @@
     "step": {
       "init": {
         "title": "Places and updates",
-        "description": "Leave the place selection empty to follow all saved places, including future additions. Select places to limit this integration. Each update uses one shared API request.",
-        "data": {"places": "Followed places", "update_interval": "Update interval (seconds, 60–900)"}
+        "description": "Choose the places to import. Empty selection with Follow all off imports nothing. Excluded entities are disabled without deleting history.",
+        "data": {
+          "places": "Followed places",
+          "update_interval": "Update interval (seconds, 60–900)",
+          "follow_all_places": "Follow all authorized places, including future additions",
+          "weather_enabled": "Weather and hourly forecasts"
+        }
       }
     },
-    "error": {"invalid_places": "Select only places belonging to this account."}
+    "error": {
+      "invalid_places": "Select only places belonging to this account."
+    },
+    "abort": {
+      "invalid_auth": "Check the API key and authorized places.",
+      "cannot_connect": "sScape is unavailable. Try again later."
+    }
   },
   "entity": {
     "sensor": {
-      "risk": {"name": "Risk", "state": {"low": "Low", "moderate": "Moderate", "high": "High", "severe": "Severe"}},
-      "situation": {"name": "Situation"},
-      "eta": {"name": "Estimated storm arrival"},
-      "updated": {"name": "Analysis updated"}
+      "risk": {
+        "name": "Risk",
+        "state": {
+          "low": "Low",
+          "moderate": "Moderate",
+          "high": "High",
+          "severe": "Severe"
+        }
+      },
+      "situation": {
+        "name": "Situation"
+      },
+      "eta": {
+        "name": "Estimated storm arrival"
+      },
+      "updated": {
+        "name": "Analysis updated"
+      },
+      "lightning_count": {
+        "name": "Lightning detections (20 min)"
+      },
+      "lightning_distance": {
+        "name": "Nearest lightning detection distance"
+      },
+      "earthquake_count": {
+        "name": "Earthquakes in search radius (24 h)"
+      }
     },
-    "binary_sensor": {"analysis_stale": {"name": "Analysis unavailable or expired"}}
+    "binary_sensor": {
+      "analysis_stale": {
+        "name": "Analysis unavailable or expired"
+      },
+      "storm_approach": {
+        "name": "Storm approaching"
+      },
+      "lightning_detected": {
+        "name": "Lightning detected in monitored radius"
+      },
+      "official_warning": {
+        "name": "Local official warning in available data"
+      },
+      "wildfire_detected": {
+        "name": "Nearby thermal detections"
+      },
+      "earthquake_activity": {
+        "name": "Recent earthquakes in search radius"
+      },
+      "hail_reported": {
+        "name": "Recent hail reports"
+      }
+    },
+    "weather": {
+      "forecast": {
+        "name": "Estimated weather and forecast"
+      }
+    }
   }
 }
