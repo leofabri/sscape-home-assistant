@@ -11,6 +11,8 @@ from .actions import setup_actions
 from .api import SScapeClient
 from .const import CONF_FOLLOW_ALL, CONF_PLACES, CONF_WEATHER, DOMAIN
 from .coordinator import SScapeCoordinator
+from .episodes import setup_episode_notifications
+from .targets import points_for
 
 type SScapeConfigEntry = ConfigEntry[SScapeCoordinator]
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WEATHER, Platform.EVENT]
@@ -33,6 +35,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> bo
     _update_place_registry(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     setup_actions(hass)
+    from .setup_panel import setup_panel
+
+    await setup_panel(hass, entry)
+    setup_episode_notifications(hass, coordinator)
+    from .assist import setup_assist
+
+    await setup_assist(hass, coordinator)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     coordinator.start_stream()
     return True
@@ -56,7 +65,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> b
         other.entry_id != entry.entry_id and other.state.value == "loaded"
         for other in hass.config_entries.async_entries(DOMAIN)
     ):
-        for name in ("get_briefing", "get_dashboard", "get_outlook"):
+        for name in ("get_briefing", "get_dashboard", "get_outlook", "get_hazards", "get_setup"):
             hass.services.async_remove(DOMAIN, name)
     return unloaded
 
@@ -67,6 +76,7 @@ def _update_place_registry(hass, entry):
     allowed = set(entry.runtime_data.catalog.places)
     if not entry.options.get(CONF_FOLLOW_ALL, False):
         allowed.intersection_update(entry.options.get(CONF_PLACES, []))
+    allowed.update(points_for(entry))
     prefix = f"{entry.unique_id}|"
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
         if entity.platform != DOMAIN or not entity.unique_id.startswith(prefix):

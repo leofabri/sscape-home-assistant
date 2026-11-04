@@ -84,6 +84,13 @@ def make_outlook(snapshot, *, hours=6, now=None):
         if temperature_complete
         else None
     )
+    snow = [number(row.get("snowfall_cm"), nonnegative=True) for row in samples]
+    snow_complete = all(value is not None for value in snow)
+    visibility = [number(row.get("visibility_m"), nonnegative=True) for row in samples]
+    visibility_complete = all(value is not None for value in visibility)
+    visibility_index = (
+        min(range(len(visibility)), key=visibility.__getitem__) if visibility_complete else None
+    )
     return {
         "available": True,
         "data_kind": "model_forecast",
@@ -113,6 +120,16 @@ def make_outlook(snapshot, *, hours=6, now=None):
             "minimum_c": temperatures[cold_index] if cold_index is not None else None,
             "time": slots[cold_index].isoformat() if cold_index is not None else None,
             "sampling": "hourly_air_temperature_not_ground_frost",
+        },
+        "snowfall": {
+            "complete": snow_complete,
+            "total_cm": sum(snow) if snow_complete else None,
+            "amount_period": "whole_forecast_hours_not_remaining_snowfall",
+        },
+        "visibility": {
+            "complete": visibility_complete,
+            "minimum_m": visibility[visibility_index] if visibility_index is not None else None,
+            "time": slots[visibility_index].isoformat() if visibility_index is not None else None,
         },
         "model": raw.get("model"),
         "fetched_at": raw.get("fetched_at"),

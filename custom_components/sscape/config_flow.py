@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from typing import Any
+from uuid import uuid4
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -30,6 +31,8 @@ from .const import (
     MAX_INTERVAL,
     MIN_INTERVAL,
 )
+from .setup_flow import SetupFlowMixin, coordinate_schema
+from .targets import validate_point
 
 KEY_SELECTOR = selector.TextSelector(
     selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
@@ -52,7 +55,17 @@ class SScapeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             client = SScapeClient(
                 host, key, async_get_clientsession(self.hass), self.hass.config.language
             )
-            snapshot = await client.async_get_catalog()
+            entry = (
+                self._get_reauth_entry() if self.source == config_entries.SOURCE_REAUTH else None
+            )
+            if entry and entry.options.get("coordinate_only"):
+                point = entry.options["coordinate_targets"][0]
+                await client.async_get_point(point, entry.data[CONF_ACCOUNT_ID])
+                from .api import PlaceCatalog
+
+                snapshot = PlaceCatalog(client.account_id, {}, False)
+            else:
+                snapshot = await client.async_get_catalog()
         except ServerUpgradeRequired:
             return {}, "server_update_required"
         except (AuthenticationError, ValueError):
@@ -69,6 +82,26 @@ class SScapeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         errors = {}
         if user_input is not None:
+            if user_input.get("use_coordinates"):
+                try:
+                    host = normalize_host(user_input[CONF_HOST])
+                    SScapeClient(host, user_input[CONF_API_KEY], async_get_clientsession(self.hass))
+                except ValueError:
+                    errors["base"] = "invalid_auth"
+                else:
+                    self._pending = {CONF_HOST: host, CONF_API_KEY: user_input[CONF_API_KEY]}
+                    return await self.async_step_coordinate_target()
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required(CONF_HOST, default=DEFAULT_HOST): str,
+                            vol.Required(CONF_API_KEY): KEY_SELECTOR,
+                            vol.Optional("use_coordinates", default=False): bool,
+                        }
+                    ),
+                    errors=errors,
+                )
             data, error = await self._validate(user_input[CONF_HOST], user_input[CONF_API_KEY])
             if error:
                 errors["base"] = error
@@ -83,8 +116,51 @@ class SScapeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_HOST, default=DEFAULT_HOST): str,
                     vol.Required(CONF_API_KEY): KEY_SELECTOR,
+                    vol.Optional("use_coordinates", default=False): bool,
                 }
             ),
+            errors=errors,
+        )
+
+    async def async_step_coordinate_target(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            point = {"id": "point-" + uuid4().hex, **user_input}
+            try:
+                validate_point(point)
+                client = SScapeClient(
+                    self._pending[CONF_HOST],
+                    self._pending[CONF_API_KEY],
+                    async_get_clientsession(self.hass),
+                    self.hass.config.language,
+                )
+                await client.async_get_point(point)
+            except AuthenticationError:
+                errors["base"] = "invalid_auth"
+            except PermissionDenied:
+                errors["base"] = "coordinate_access_denied"
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except ValueError:
+                errors["base"] = "invalid_coordinates"
+            else:
+                await self.async_set_unique_id(f"{client.host}|{client.account_id}")
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title="sScape",
+                    data=self._pending | {CONF_ACCOUNT_ID: client.account_id},
+                    options={
+                        "coordinate_only": True,
+                        "coordinate_targets": [point],
+                        CONF_PLACES: [],
+                        CONF_FOLLOW_ALL: False,
+                        CONF_INTERVAL: DEFAULT_INTERVAL,
+                        CONF_WEATHER: True,
+                    },
+                )
+        return self.async_show_form(
+            step_id="coordinate_target",
+            data_schema=coordinate_schema(hass=self.hass),
             errors=errors,
         )
 
@@ -170,7 +246,7 @@ class SScapeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
-class SScapeOptionsFlow(config_entries.OptionsFlow):
+class SScapeOptionsFlow(SetupFlowMixin, config_entries.OptionsFlow):
     """Choose a subset or follow all places, including places added later."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
@@ -185,7 +261,12 @@ class SScapeOptionsFlow(config_entries.OptionsFlow):
                     async_get_clientsession(self.hass),
                     self.hass.config.language,
                 )
-                catalog = await client.async_get_catalog()
+                if entry.options.get("coordinate_only"):
+                    from .api import PlaceCatalog
+
+                    catalog = PlaceCatalog(entry.data[CONF_ACCOUNT_ID], {}, False)
+                else:
+                    catalog = await client.async_get_catalog()
                 if catalog.account_id != entry.data[CONF_ACCOUNT_ID]:
                     raise AuthenticationError()
                 self._choices = catalog.places
@@ -199,20 +280,23 @@ class SScapeOptionsFlow(config_entries.OptionsFlow):
             if not set(user_input.get(CONF_PLACES, [])).issubset(choices):
                 errors["base"] = "invalid_places"
             else:
-                return self.async_create_entry(
-                    title="",
-                    data={
-                        CONF_PLACES: user_input.get(CONF_PLACES, []),
-                        CONF_INTERVAL: int(user_input[CONF_INTERVAL]),
-                        CONF_FOLLOW_ALL: user_input.get(CONF_FOLLOW_ALL, False),
-                        CONF_WEATHER: user_input.get(CONF_WEATHER, True),
-                        **(
-                            {"push_updates": user_input["push_updates"]}
-                            if "push_updates" in user_input
-                            else {}
-                        ),
-                    },
-                )
+                options = {
+                    **entry.options,
+                    CONF_PLACES: user_input.get(CONF_PLACES, []),
+                    CONF_INTERVAL: int(user_input[CONF_INTERVAL]),
+                    CONF_FOLLOW_ALL: user_input.get(CONF_FOLLOW_ALL, False),
+                    CONF_WEATHER: user_input.get(CONF_WEATHER, True),
+                    **(
+                        {"push_updates": user_input["push_updates"]}
+                        if "push_updates" in user_input
+                        else {}
+                    ),
+                }
+                self._draft_options = options
+                step = user_input.get("configure_more", "save")
+                if step in ("coordinate", "local_sensors", "notifications", "assist"):
+                    return await getattr(self, "async_step_" + step)()
+                return self.async_create_entry(title="", data=options)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -235,6 +319,40 @@ class SScapeOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         "push_updates", default=entry.options.get("push_updates", True)
                     ): bool,
+                    vol.Optional("configure_more", default="save"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": key, "label": label}
+                                for key, label in (
+                                    (
+                                        "save",
+                                        "Salva"
+                                        if self.hass.config.language.startswith("it")
+                                        else "Save",
+                                    ),
+                                    (
+                                        "coordinate",
+                                        "Punti per coordinate"
+                                        if self.hass.config.language.startswith("it")
+                                        else "Coordinate targets",
+                                    ),
+                                    (
+                                        "local_sensors",
+                                        "Sensori locali"
+                                        if self.hass.config.language.startswith("it")
+                                        else "Local instruments",
+                                    ),
+                                    (
+                                        "notifications",
+                                        "Notifiche per episodio"
+                                        if self.hass.config.language.startswith("it")
+                                        else "Episode notifications",
+                                    ),
+                                    ("assist", "Assist"),
+                                )
+                            ]
+                        )
+                    ),
                 }
             ),
             errors=errors,

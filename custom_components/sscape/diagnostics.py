@@ -4,7 +4,7 @@
 async def async_get_config_entry_diagnostics(hass, entry):
     coordinator = getattr(entry, "runtime_data", None)
     result = {
-        "integration_version": "0.4.0",
+        "integration_version": "0.5.0",
         "config_entry_state": entry.state.value,
         "runtime_available": coordinator is not None,
         "reauthentication_required": any(
@@ -25,4 +25,9 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "poll_interval_seconds": coordinator.update_interval.total_seconds(),
         "place_count": len(coordinator.data.places),
         "fresh_place_count": sum(place.is_fresh() for place in coordinator.data.places.values()),
+        "coordinate_target_count": len(coordinator.client.points),
+        "coordinate_failures": sorted(coordinator.point_failures.values()),
+        "episode_notification_failure": getattr(
+            getattr(coordinator, "episode_notifications", None), "failure_reason", None
+        ),
     }

@@ -1,8 +1,68 @@
 # sScape per Home Assistant
 
-Un dispositivo per ogni luogo seguito, configurato dall’interfaccia di Home
+Un dispositivo per ogni luogo o punto geografico scelto, configurato dall’interfaccia di Home
 Assistant. Nessun YAML obbligatorio, nessuna porta da aprire, nessuna password
 dell’account da consegnare all’integrazione.
+
+## Novità della 0.5
+
+- **Coordinate**: latitudine, longitudine e raggio anche senza salvare un luogo
+  in sScape, usando l’API geolocalizzata esistente. Fino a 10 punti, modificabili
+  e sospendibili nelle opzioni HA. Le coordinate sono conservate nella
+  configurazione HA e inviate a sScape per ottenere analisi e previsioni;
+  nessun luogo viene creato nell’account.
+- **Allerte ed eventi**: indicatori opzionali per allerta principale e scadenza,
+  magnitudo/distanza/ora del terremoto più recente e distanza dell’anomalia
+  termica più vicina. Gli attributi mantengono fonte ed evidenze. Un’allerta
+  può riguardare il **raggio monitorato** senza coprire il punto: `covers_point`
+  distingue i casi verificati. Cataloghi e dettaglio delle allerte sono parziali.
+- **Inverno**: neve prevista e visibilità minima nelle prossime 24 ore. Se manca
+  un’ora necessaria, il valore resta indisponibile. La neve prevista non è una
+  misura del manto presente; la minima dell’aria non conferma gelo al suolo.
+- **Sensori locali**: associa temperatura, umidità, pressione, vento, raffica,
+  intensità di pioggia e contatore da strumenti esterni HA. Unità convertite e
+  freshness verificata. I dati **non vengono caricati su sScape** e non cambiano
+  il rischio. Senza timestamp osservativo esplicito si indica l’ora di ricezione
+  HA, non un’ora di misura inventata. Il contatore non diventa intensità di pioggia.
+- **Notifiche per episodio**: facoltative, tramite servizi `notify`, per esempio
+  la Companion App. Luoghi accorpati solo per stesso ID e sorgente, non per
+  vicinanza. Contesto e distanze restano specifici del luogo. Nessun replay
+  all’avvio o falso cessato allarme. Non associare anche un blueprint allo stesso
+  evento se vuoi evitare doppioni. Nessun dispositivo viene comandato.
+- **Dashboard guidata**: apri **sScape setup** nella barra laterale come
+  amministratore. Scegli un luogo o tutti quelli importati, prepara l’anteprima,
+  seleziona gli indicatori opzionali e conferma. Viene creata solo una **nuova**
+  dashboard, inizialmente riservata agli amministratori, senza copiare YAML.
+  Le dashboard esistenti e le entità disabilitate da te non vengono modificate.
+- **Assist**: abilita le frasi e, se vuoi, esponi rischio e meteo dei luoghi
+  selezionati. Con l’agente Home Assistant integrato chiedi «sScape situazione
+  a Casa», «sScape allerte a Casa», «sScape quando piove a Casa», «sScape neve
+  a Casa» oppure «sScape ora più fredda a Casa». Anche in inglese. Alias
+  facoltativi, nomi ambigui rifiutati, esposizione e permessi di lettura rispettati.
+  Le richieste senza identità utente, tipiche di alcuni satelliti vocali condivisi,
+  richiedono un consenso separato, disabilitato inizialmente.
+
+### Attivazione
+
+Aggiorna in HACS e **riavvia completamente Home Assistant**. In **Impostazioni →
+Dispositivi e servizi → sScape → Configura** usa «Dopo il salvataggio configura»
+per coordinate, sensori locali, notifiche o Assist. Ripetere la procedura non
+cancella le altre opzioni. Il pannello guidato richiede il frontend HA;
+su installazioni headless restano le azioni amministrative di sola lettura
+`sscape.get_dashboard`, `sscape.get_setup` e `sscape.get_hazards`.
+
+Per i **luoghi salvati** serve `places:read`. Per le **coordinate** serve
+`integrations:read` e una chiave **non limitata ai luoghi**: la restrizione è
+intenzionale e non viene aggirata. In modalità mista servono entrambi i permessi.
+Resta necessario un piano con accesso API. In una nuova configurazione puoi
+scegliere subito le coordinate, senza alcun luogo salvato. Le previsioni per
+coordinate richiedono il backend con supporto additivo `include_forecast=true`.
+
+Le dashboard sono create tramite WebSocket HA autenticato, mai modificando
+`.storage`. Dopo la creazione puoi modificarle con gli strumenti nativi;
+l’integrazione non le aggiorna automaticamente. I sensori locali continuano
+durante un’interruzione cloud **dopo il caricamento**. Il primo avvio richiede
+una connessione valida a sScape; i sensori originali HA restano indipendenti.
 
 ## Novità della 0.4
 
@@ -116,7 +176,7 @@ contratto di selezione `home-assistant.v2`.
 5. Nel profilo sScape crea una chiave API con il permesso `places:read` e
    inseriscila nel campo dedicato. Non serve la password sScape.
 
-Servono almeno un luogo seguito e un piano account che consenta l’accesso API
+In modalità luoghi serve almeno un luogo seguito; in entrambe serve un piano che consenta l’accesso API
 (attualmente Starter, Pro o Enterprise). Il componente non modifica questi
 permessi né richiede abbonamenti aggiuntivi per HACS. Per installazioni locali
 HTTP è ammesso soltanto su indirizzi LAN/loopback o nomi `.local`; HTTPS è
@@ -168,7 +228,9 @@ protezione di persone o beni: non sostituiscono gli avvisi ufficiali.
 Nelle **Opzioni** scegli i luoghi: **selezione vuota significa nessun luogo**.
 «Segui tutti» è una scelta separata, mai implicita. Puoi disattivare il meteo.
 Il polling delle valutazioni è di 120 secondi, configurabile fra 60 e 900:
-una richiesta per account, non per sensore. Le previsioni vengono aggiornate
+una richiesta per account per i luoghi salvati, non per sensore. Per le coordinate
+si usa una richiesta per punto e intervallo, con cache contro i burst e al massimo
+due richieste meteo in parallelo. Le previsioni vengono aggiornate
 ogni 10 minuti con una richiesta per luogo selezionato, massimo due in parallelo.
 Retry-After e backoff limitano le richieste durante problemi.
 La revoca/scadenza della chiave avvia il flusso di riautenticazione; una
@@ -247,6 +309,7 @@ uv venv --python 3.14 .venv
 uv pip install --python .venv/bin/python -r requirements-test.txt
 .venv/bin/pytest --timeout=20 --cov=custom_components.sscape --cov-branch
 .venv/bin/ruff check .
+node --test tests/setup-controller.test.mjs
 .venv/bin/python tools/package.py --output /tmp/sscape-home-assistant.zip
 ```
 
@@ -262,6 +325,7 @@ l’icona sScape originale, inclusa senza trasformazioni.
 - [Requisiti HACS](https://www.hacs.dev/docs/publish/integration/)
 - [Repository pubblici HACS](https://hacs.dev/docs/publish/start/)
 - [Polling condiviso Home Assistant](https://contributors.home-assistant.io/core/integrations/fetching-data/)
+- [Pannelli personalizzati Home Assistant](https://www.home-assistant.io/integrations/panel_custom/)
 
 Licenza del codice: MIT, come il progetto principale. Questa licenza non
 concede diritti aggiuntivi sui dati meteorologici o sulle API sScape.

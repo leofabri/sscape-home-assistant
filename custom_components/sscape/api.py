@@ -13,6 +13,7 @@ from urllib.parse import quote, urlsplit
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from .const import MAX_INTERVAL, MIN_INTERVAL, RISK_LEVELS
+from .targets import validate_point
 
 MAX_BODY_BYTES = 2 * 1024 * 1024
 
@@ -318,6 +319,9 @@ class SScapeClient:
         self._capabilities: set[str] = set()
         self._page_cache = {}
         self._cached_selection = None
+        self.places_restricted = False
+        self.account_id = None
+        self.points = {}
 
     async def async_get_catalog(self) -> PlaceCatalog:
         body = await self._async_get("/api/v1/integrations/places", params={"view": "selection"})
@@ -356,6 +360,8 @@ class SScapeClient:
             if isinstance(capabilities, list)
             else set()
         )
+        self.places_restricted = body.get("places_restricted") is True
+        self.account_id = owner
         return PlaceCatalog(
             owner, choices, body.get("places_restricted") is True, tuple(sorted(self._capabilities))
         )
@@ -459,6 +465,8 @@ class SScapeClient:
             yield event
 
     async def async_get_weather(self, place_id: str) -> dict[str, Any]:
+        if place_id in self.points:
+            return await self.async_get_point_weather(self.points[place_id], self.account_id)
         body = await self._async_get(
             f"/api/v1/integrations/places/{quote(place_id, safe='')}/weather"
         )
@@ -468,6 +476,48 @@ class SScapeClient:
             or not isinstance(body.get("forecast"), dict)
         ):
             raise ProtocolError("Invalid weather response")
+        return body["forecast"]
+
+    async def _async_point_response(self, point, owner, *, forecast=False):
+        point = validate_point(point)
+        if self.places_restricted:
+            raise PermissionDenied(
+                "Coordinate queries require an unrestricted integrations:read key"
+            )
+        params = {field: str(point[field]) for field in ("latitude", "longitude", "radius_km")}
+        params["label"] = point["name"]
+        if forecast:
+            params["include_forecast"] = "true"
+        body = await self._async_get("/api/v1/integrations/briefing", params=params)
+        briefing = body.get("briefing") if isinstance(body, dict) else None
+        place = briefing.get("place") if isinstance(briefing, dict) else None
+        actual_owner = place.get("user_id") if isinstance(place, dict) else None
+        if (
+            not isinstance(actual_owner, str)
+            or not actual_owner
+            or "|" in actual_owner
+            or (owner is not None and actual_owner != owner)
+            or any(
+                type(place.get(field)) not in (int, float)
+                or not math.isfinite(place[field])
+                or abs(place[field] - point[field]) > 1e-6
+                for field in ("latitude", "longitude")
+            )
+        ):
+            raise ProtocolError(
+                "Geographic response does not match the requested account and target"
+            )
+        self.account_id = actual_owner
+        return body
+
+    async def async_get_point(self, point, owner=None):
+        body = await self._async_point_response(point, owner)
+        return PlaceSnapshot(point["id"], point["name"], body["briefing"], True)
+
+    async def async_get_point_weather(self, point, owner):
+        body = await self._async_point_response(point, owner, forecast=True)
+        if not isinstance(body.get("forecast"), dict):
+            raise ProtocolError("The server does not support geographic forecasts yet")
         return body["forecast"]
 
     async def _async_get(self, path: str, *, params: dict[str, str] | None = None) -> Any:

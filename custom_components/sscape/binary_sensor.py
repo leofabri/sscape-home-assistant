@@ -4,6 +4,7 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass, Bina
 from homeassistant.const import EntityCategory
 
 from .entity import SScapeEntity, async_watch_places
+from .hazards import hazards_for
 
 PARALLEL_UPDATES = 0
 
@@ -79,6 +80,10 @@ class SScapeSignal(SScapeEntity, BinarySensorEntity):
         if self.key == "earthquake_activity":
             attrs["search_radius_km"] = self.place.metric("earthquake_search_radius_km")
             attrs["max_magnitude_24h"] = self.place.metric("max_earthquake_magnitude_24h")
+            attrs["events"] = hazards_for(self.place).get("earthquakes", [])
+        if self.key == "official_warning":
+            attrs["warnings"] = hazards_for(self.place).get("official_warnings", [])
+            attrs["scope"] = "monitored_radius_not_necessarily_the_exact_point"
         if self.key == "wildfire_detected":
             attrs["detections"] = [
                 {key: item.get(key) for key in ("source", "observed_at", "distance_km", "kind")}

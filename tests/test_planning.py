@@ -174,6 +174,22 @@ def test_invalid_dates_and_non_object_rows_are_not_silently_repaired(planning_da
     assert make_outlook(WeatherSnapshot.parse(raw), now=now)["reason"] == "invalid_forecast_period"
 
 
+def test_winter_quantities_are_separate_and_missing_is_not_zero(planning_data):
+    raw, now = planning_data
+    for index, row in enumerate(raw["hours"]):
+        row["snowfall_cm"] = 1 if index in (2, 3) else 0
+        row["visibility_m"] = 200 if index == 3 else 10000
+    result = make_outlook(WeatherSnapshot.parse(raw), now=now)
+    assert result["snowfall"]["total_cm"] == 2
+    assert result["visibility"]["minimum_m"] == 200
+    assert result["visibility"]["time"] == raw["hours"][3]["time"]
+    raw["hours"][0]["snowfall_cm"] = None
+    raw["hours"][0]["visibility_m"] = None
+    result = make_outlook(WeatherSnapshot.parse(raw), now=now)
+    assert result["snowfall"]["total_cm"] is None
+    assert result["visibility"]["minimum_m"] is None
+
+
 def _parse(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 

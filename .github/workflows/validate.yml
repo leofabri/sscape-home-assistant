@@ -37,6 +37,8 @@ jobs:
           ruff format --check .
       - name: Offline runtime tests
         run: pytest --timeout=20 --cov=custom_components.sscape --cov-branch
+      - name: Dashboard safety tests
+        run: node --test tests/setup-controller.test.mjs
       - name: Verify installable package
         run: python tools/package.py --output /tmp/sscape-home-assistant.zip
 

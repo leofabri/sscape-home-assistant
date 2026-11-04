@@ -2,3 +2,5 @@
 pytest-homeassistant-custom-component==0.13.316
 pytest-cov==7.0.0
 ruff==0.17.3
+hassil==3.5.0
+home-assistant-intents==2026.1.28

@@ -4,10 +4,11 @@
     "step": {
       "user": {
         "title": "Collega sScape",
-        "description": "Crea una chiave API nel tuo profilo sScape con il permesso places:read. Serve un piano che includa l’accesso API e almeno un luogo seguito. Non devi aprire porte di Home Assistant.",
+        "description": "Collega una chiave API sScape. Per i luoghi salvati serve places:read; per punti senza salvataggio scegli le coordinate e usa integrations:read con una chiave non limitata ai luoghi. È necessario un piano con accesso API.",
         "data": {
           "host": "Server sScape",
-          "api_key": "Chiave API"
+          "api_key": "Chiave API",
+          "use_coordinates": "Usa latitudine e longitudine, senza salvare un luogo"
         },
         "data_description": {
           "host": "Indirizzo completo, ad esempio https://sscape.leofabri.com. Non aggiungere /api/v1."
@@ -15,7 +16,7 @@
       },
       "reauth_confirm": {
         "title": "Ricollega sScape",
-        "description": "Inserisci una nuova chiave con il permesso places:read dello stesso account sScape. Dispositivi e automazioni esistenti saranno mantenuti.",
+        "description": "Inserisci una chiave dello stesso account con i permessi richiesti: places:read per i luoghi, integrations:read senza limiti ai luoghi per le coordinate. Dispositivi e automazioni restano invariati.",
         "data": {
           "api_key": "Nuova chiave API"
         }
@@ -26,6 +27,17 @@
         "data": {
           "places": "Luoghi da importare",
           "follow_all_places": "Segui tutti i luoghi autorizzati, anche futuri"
+        }
+      },
+      "coordinate_target": {
+        "title": "Un punto, senza salvare un luogo",
+        "description": "La richiesta usa l’API geolocalizzata sScape. Il punto resta nella configurazione HA; nessun luogo viene aggiunto al tuo account. Le coordinate vengono inviate a sScape per ottenere l’analisi.",
+        "data": {
+          "name": "Nome in Home Assistant",
+          "latitude": "Latitudine",
+          "longitude": "Longitudine",
+          "radius_km": "Raggio monitorato (km)",
+          "enabled": "Monitora questo punto"
         }
       }
     },
@@ -38,7 +50,9 @@
       "wrong_account": "Questa chiave appartiene a un altro account. Usa una chiave dell’account già collegato.",
       "select_places": "Seleziona almeno un luogo oppure scegli esplicitamente «Segui tutti».",
       "invalid_places": "Scegli soltanto luoghi autorizzati da questa chiave.",
-      "server_update_required": "Il server sScape deve essere aggiornato per supportare la selezione sicura dei luoghi."
+      "server_update_required": "Il server sScape deve essere aggiornato per supportare la selezione sicura dei luoghi.",
+      "coordinate_access_denied": "Servono integrations:read, un piano API e una chiave non limitata ai luoghi.",
+      "invalid_coordinates": "Verifica nome, latitudine (−90…90), longitudine (−180…180) e raggio (1–1000 km)."
     },
     "abort": {
       "already_configured": "Questo account sScape è già configurato su questo server.",
@@ -55,16 +69,84 @@
           "update_interval": "Intervallo di aggiornamento (secondi, 60–900)",
           "follow_all_places": "Segui tutti i luoghi autorizzati, anche futuri",
           "weather_enabled": "Meteo e previsioni orarie",
-          "push_updates": "Aggiornamenti push, se supportati dal server"
+          "push_updates": "Aggiornamenti push, se supportati dal server",
+          "configure_more": "Dopo il salvataggio configura"
+        }
+      },
+      "coordinate": {
+        "title": "Punti per coordinate",
+        "description": "Aggiungi o modifica fino a 10 punti. Per sospenderne uno, disattiva il monitoraggio; lo storico HA resta disponibile.",
+        "data": {
+          "target": "Punto"
+        }
+      },
+      "coordinate_details": {
+        "title": "Un punto, senza salvare un luogo",
+        "description": "La richiesta usa l’API geolocalizzata sScape. Il punto resta nella configurazione HA; nessun luogo viene aggiunto al tuo account. Le coordinate vengono inviate a sScape per ottenere l’analisi.",
+        "data": {
+          "name": "Nome in Home Assistant",
+          "latitude": "Latitudine",
+          "longitude": "Longitudine",
+          "radius_km": "Raggio monitorato (km)",
+          "enabled": "Monitora questo punto"
+        }
+      },
+      "local_sensors": {
+        "title": "Misure della tua stazione",
+        "description": "Scegli il luogo cui associare i sensori. I valori restano in Home Assistant e non modificano l’analisi sScape.",
+        "data": {
+          "target": "Luogo o punto"
+        }
+      },
+      "local_sensor_details": {
+        "title": "Seleziona sensori esterni",
+        "description": "Associa solo strumenti meteorologici del luogo, non sensori interni o previsioni. Le unità sono verificate e convertite. Un valore mancante o scaduto non diventa zero. Il contatore non viene interpretato come intensità di pioggia.",
+        "data": {
+          "temperature": "Temperatura esterna",
+          "humidity": "Umidità esterna",
+          "pressure": "Pressione atmosferica",
+          "wind_speed": "Velocità del vento",
+          "wind_gust": "Raffica",
+          "rain_rate": "Intensità di pioggia",
+          "rain_counter": "Contatore pioggia, periodo definito dal sensore",
+          "confirm_outdoor": "Confermo: sono strumenti meteo esterni relativi a questo luogo"
+        }
+      },
+      "notifications": {
+        "title": "Una notifica per episodio",
+        "description": "Facoltativo. Raggruppa i luoghi solo quando sScape fornisce lo stesso ID di evento e sorgente. Nessun invio al riavvio e nessun cessato allarme dedotto da dati mancanti. Usa un servizio notify, ad esempio la Companion App.",
+        "data": {
+          "episode_notifications": "Abilita notifiche raggruppate",
+          "notify_service": "Destinazione delle notifiche",
+          "episode_kinds": "Episodi da notificare"
+        }
+      },
+      "assist": {
+        "title": "Chiedilo ad Assist",
+        "description": "Usa frasi come «sScape situazione a Casa» o «sScape quando piove a Casa». Funziona con l’agente Home Assistant integrato. Servono entità esposte e permesso di lettura. Alias facoltativi: una riga «Nome luogo = casa, giardino». I nomi ambigui non ricevono risposta.",
+        "data": {
+          "assist_enabled": "Abilita le frasi sScape",
+          "assist_allow_anonymous": "Consenti richieste senza identità utente, ad esempio satelliti vocali condivisi",
+          "expose_selected_entities": "Esponi ora ad Assist rischio e meteo dei luoghi selezionati",
+          "aliases": "Alias dei luoghi (facoltativi)"
         }
       }
     },
     "error": {
-      "invalid_places": "Seleziona soltanto luoghi appartenenti a questo account."
+      "invalid_places": "Seleziona soltanto luoghi appartenenti a questo account.",
+      "invalid_coordinates": "Verifica nome, latitudine (−90…90), longitudine (−180…180) e raggio (1–1000 km).",
+      "outdoor_required": "Conferma che i sensori sono strumenti esterni del luogo.",
+      "invalid_local_sensor": "Il sensore non esiste, usa unità incompatibili o è una previsione sScape.",
+      "invalid_notify_service": "Seleziona un servizio notify disponibile.",
+      "invalid_aliases": "Usa una riga «Nome luogo = alias, altro alias». Il nome deve corrispondere a un solo luogo selezionato.",
+      "coordinate_access_denied": "Servono integrations:read, un piano API e una chiave non limitata ai luoghi.",
+      "invalid_auth": "La chiave API non è valida, è stata revocata oppure è scaduta.",
+      "cannot_connect": "Impossibile leggere le API sScape. Verifica l’indirizzo del server e riprova più tardi."
     },
     "abort": {
       "invalid_auth": "Verifica la chiave API e i luoghi autorizzati.",
-      "cannot_connect": "Server sScape non raggiungibile. Riprova più tardi."
+      "cannot_connect": "Server sScape non raggiungibile. Riprova più tardi.",
+      "invalid_places": "Seleziona soltanto luoghi appartenenti a questo account."
     }
   },
   "entity": {
@@ -151,11 +233,66 @@
       },
       "precipitation_outlook": {
         "name": "Precipitazioni nelle prossime ore",
-        "state": {"expected": "Previste", "not_expected": "Non previste", "data_incomplete": "Previsione incompleta"}
+        "state": {
+          "expected": "Previste",
+          "not_expected": "Non previste",
+          "data_incomplete": "Previsione incompleta"
+        }
       },
-      "next_rain_window": {"name": "Prossima fascia di precipitazioni entro 24 ore"},
-      "gust_peak_time": {"name": "Fine dell’ora con raffica massima prevista entro 24 ore"},
-      "temperature_minimum_time": {"name": "Ora più fredda prevista entro 24 ore"}
+      "next_rain_window": {
+        "name": "Prossima fascia di precipitazioni entro 24 ore"
+      },
+      "gust_peak_time": {
+        "name": "Fine dell’ora con raffica massima prevista entro 24 ore"
+      },
+      "temperature_minimum_time": {
+        "name": "Ora più fredda prevista entro 24 ore"
+      },
+      "official_warning_details": {
+        "name": "Allerta principale nell’area monitorata"
+      },
+      "official_warning_expires": {
+        "name": "Scadenza dell’allerta principale"
+      },
+      "latest_earthquake_magnitude": {
+        "name": "Magnitudo del terremoto più recente"
+      },
+      "latest_earthquake_distance": {
+        "name": "Distanza del terremoto più recente"
+      },
+      "latest_earthquake_time": {
+        "name": "Ora del terremoto più recente"
+      },
+      "nearest_thermal_detection": {
+        "name": "Distanza dell’anomalia termica più vicina"
+      },
+      "forecast_snowfall": {
+        "name": "Neve prevista nelle prossime 24 ore"
+      },
+      "forecast_visibility": {
+        "name": "Visibilità minima prevista nelle prossime 24 ore"
+      },
+      "local_temperature": {
+        "name": "Locale · Temperatura esterna"
+      },
+      "local_humidity": {
+        "name": "Locale · Umidità esterna"
+      },
+      "local_pressure": {
+        "name": "Locale · Pressione atmosferica"
+      },
+      "local_wind_speed": {
+        "name": "Locale · Velocità del vento"
+      },
+      "local_wind_gust": {
+        "name": "Locale · Raffica"
+      },
+      "local_rain_rate": {
+        "name": "Locale · Intensità di pioggia"
+      },
+      "local_rain_counter": {
+        "name": "Locale · Contatore pioggia, periodo definito dal sensore"
+      }
     },
     "binary_sensor": {
       "analysis_stale": {
@@ -209,13 +346,16 @@
     },
     "get_dashboard": {
       "name": "Genera la dashboard del luogo",
-      "description": "Restituisce lo YAML pronto con gli identificativi reali delle entità e sole card native. Non crea né sovrascrive dashboard. Richiede accesso amministratore.",
+      "description": "Restituisce YAML e configurazione JSON per l’anteprima. Non crea né modifica dashboard. Per la procedura guidata apri sScape setup. Solo amministratori.",
       "fields": {
         "device_id": {
           "name": "Luogo sScape"
         },
         "all_selected_places": {
           "name": "Includi tutti i luoghi importati"
+        },
+        "include_optional": {
+          "name": "Includi gli indicatori opzionali nell’anteprima"
         }
       }
     },
@@ -223,8 +363,35 @@
       "name": "Leggi le prossime fasce meteo",
       "description": "Restituisce fasce di precipitazioni previste, ora della raffica massima e ora più fredda, dai dati in cache. Non controlla dispositivi. Richiede accesso amministratore.",
       "fields": {
-        "device_id": {"name": "Luogo sScape"},
-        "hours": {"name": "Ore da considerare"}
+        "device_id": {
+          "name": "Luogo sScape"
+        },
+        "hours": {
+          "name": "Ore da considerare"
+        }
+      }
+    },
+    "get_hazards": {
+      "name": "Leggi allerte ed eventi",
+      "description": "Restituisce evidenze attuali, fonti, distanze e orari, senza nuove richieste alla rete. I cataloghi possono essere parziali. Solo amministratori.",
+      "fields": {
+        "device_id": {
+          "name": "Luogo sScape"
+        }
+      }
+    },
+    "get_setup": {
+      "name": "Leggi configurazione della dashboard",
+      "description": "Elenca luoghi ed entità selezionati per l’anteprima. Non restituisce chiavi API né modifica dashboard. Solo amministratori."
+    }
+  },
+  "selector": {
+    "episode_kinds": {
+      "options": {
+        "storm": "Temporali tracciati",
+        "official": "Allerte ufficiali",
+        "earthquake": "Terremoti recenti",
+        "thermal": "Anomalie termiche satellitari"
       }
     }
   }

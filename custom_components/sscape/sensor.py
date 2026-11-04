@@ -154,6 +154,12 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     from .outlook import setup_outlook_sensors
 
     setup_outlook_sensors(hass, entry, async_add_entities)
+    from .local_sensors import setup_local_sensors
+
+    setup_local_sensors(hass, entry, async_add_entities)
+    from .hazard_entities import setup_hazard_entities
+
+    setup_hazard_entities(hass, entry, async_add_entities)
 
 
 class SScapeSensor(SScapeEntity, SensorEntity):

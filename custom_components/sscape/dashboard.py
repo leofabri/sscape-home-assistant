@@ -4,17 +4,36 @@ from urllib.parse import quote
 
 from homeassistant.helpers import entity_registry as er
 
+from .targets import allows_target
+
 
 def place_map_url(parent, place):
+    if point := parent.client.points.get(place.place_id):
+        return (
+            parent.client.host
+            + "/map?lat="
+            + str(point["latitude"])
+            + "&lng="
+            + str(point["longitude"])
+            + "&zoom=12"
+        )
     return parent.client.host + "/map?place=" + quote(place.place_id, safe="")
 
 
-def _entities(hass, entry, place):
+def _entities(hass, entry, place, *, include_optional=False):
     prefix = f"{entry.unique_id}|{place.place_id}|"
     return {
         item.unique_id[len(prefix) :]: item.entity_id
         for item in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
-        if item.unique_id.startswith(prefix) and item.disabled_by is None
+        if item.unique_id.startswith(prefix)
+        and (
+            item.disabled_by is None
+            or (
+                include_optional
+                and item.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+                and not item.options.get("sscape", {}).get("place_excluded")
+            )
+        )
     }
 
 
@@ -29,8 +48,8 @@ def _known_tile(entity):
     }
 
 
-def _place_cards(hass, entry, parent, place):
-    entities = _entities(hass, entry, place)
+def _place_cards(hass, entry, parent, place, *, include_optional=False):
+    entities = _entities(hass, entry, place, include_optional=include_optional)
     cards = []
     if weather := entities.get("forecast"):
         cards.append(
@@ -66,6 +85,29 @@ def _place_cards(hass, entry, parent, place):
     ):
         if entity := entities.get(key):
             cards.append(_known_tile(entity))
+    detail_tiles = [
+        _known_tile(entity)
+        for key in (
+            "official_warning_details",
+            "official_warning_expires",
+            "latest_earthquake_magnitude",
+            "latest_earthquake_distance",
+            "latest_earthquake_time",
+            "nearest_thermal_detection",
+            "forecast_snowfall_cm",
+            "forecast_visibility_minimum_m",
+            "local_temperature",
+            "local_humidity",
+            "local_pressure",
+            "local_wind_speed",
+            "local_wind_gust",
+            "local_rain_rate",
+            "local_rain_counter",
+        )
+        if (entity := entities.get(key))
+    ]
+    if detail_tiles:
+        cards.append({"type": "grid", "columns": 2, "square": False, "cards": detail_tiles})
     cards.append(
         {
             "type": "button",
@@ -79,7 +121,7 @@ def _place_cards(hass, entry, parent, place):
     return cards
 
 
-def build_dashboard(hass, entry, parent, place, *, all_places=False):
+def build_dashboard(hass, entry, parent, place, *, all_places=False, include_optional=False):
     if not all_places:
         return {
             "title": "sScape",
@@ -87,13 +129,13 @@ def build_dashboard(hass, entry, parent, place, *, all_places=False):
                 {
                     "title": place.name,
                     "path": "sscape",
-                    "cards": _place_cards(hass, entry, parent, place),
+                    "cards": _place_cards(
+                        hass, entry, parent, place, include_optional=include_optional
+                    ),
                 }
             ],
         }
-    allowed = set(parent.data.places)
-    if not entry.options.get("follow_all_places", False):
-        allowed.intersection_update(entry.options.get("places", []))
+    allowed = {key for key in parent.data.places if allows_target(entry, key)}
     places = sorted(
         (parent.data.places[key] for key in allowed),
         key=lambda item: (item.name.casefold(), item.place_id),
@@ -116,7 +158,7 @@ def build_dashboard(hass, entry, parent, place, *, all_places=False):
             {
                 "title": item.name,
                 "path": f"sscape-{index}",
-                "cards": _place_cards(hass, entry, parent, item),
+                "cards": _place_cards(hass, entry, parent, item, include_optional=include_optional),
             }
         )
     if risks:

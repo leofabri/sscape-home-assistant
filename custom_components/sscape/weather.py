@@ -40,9 +40,17 @@ class SScapeWeatherCoordinator(DataUpdateCoordinator[WeatherSnapshot]):
                 data = WeatherSnapshot.parse(
                     await self.parent.client.async_get_weather(self.place_id)
                 )
-        except (AuthenticationError, PermissionDenied):
+        except (AuthenticationError, PermissionDenied) as err:
             if self.parent.stopping:
                 raise asyncio.CancelledError from None
+            if (
+                isinstance(err, PermissionDenied)
+                and self.place_id in self.parent.client.points
+                and not self.parent.config_entry.options.get("coordinate_only")
+            ):
+                raise UpdateFailed(
+                    "Geographic forecast requires integrations:read and an unrestricted API key"
+                ) from None
             raise ConfigEntryAuthFailed("Check the API key and place permissions") from None
         except RateLimited as err:
             raise UpdateFailed("API rate limit reached", retry_after=err.retry_after) from None

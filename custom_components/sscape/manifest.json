@@ -4,10 +4,11 @@
   "categories": ["weather_alerts"],
   "codeowners": ["@leofabri"],
   "config_flow": true,
+  "after_dependencies": ["frontend"],
   "documentation": "https://github.com/leofabri/sscape-home-assistant#readme",
   "integration_type": "service",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/leofabri/sscape-home-assistant/issues",
   "requirements": [],
-  "version": "0.4.0"
+  "version": "0.5.0"
 }

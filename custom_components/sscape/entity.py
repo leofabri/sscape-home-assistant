@@ -8,8 +8,9 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import PlaceSnapshot
-from .const import CONF_FOLLOW_ALL, CONF_PLACES, DOMAIN
+from .const import DOMAIN
 from .coordinator import SScapeCoordinator
+from .targets import allows_target
 
 
 def place_device_info(coordinator, place):
@@ -68,11 +69,9 @@ def async_watch_places(hass, entry, async_add_entities, factory: Callable) -> No
             or getattr(entry, "runtime_data", None) is not coordinator
         ):
             return
-        selected = entry.options.get(CONF_PLACES, [])
-        follow_all = entry.options.get(CONF_FOLLOW_ALL, False)
         new = []
         for place_id, place in coordinator.data.places.items():
-            if place_id not in known and (follow_all or place_id in selected):
+            if place_id not in known and allows_target(entry, place_id):
                 known.add(place_id)
                 new.extend(factory(coordinator, place))
         if new:

@@ -4,10 +4,11 @@
     "step": {
       "user": {
         "title": "Connect sScape",
-        "description": "Create an API key in your sScape profile with places:read access. API access requires a compatible account plan. You must have at least one saved place. No Home Assistant ports need to be opened.",
+        "description": "Connect an sScape API key. Saved places require places:read; for points without saving choose coordinates and use integrations:read with a key not restricted to places. An API-enabled plan is required.",
         "data": {
           "host": "sScape server",
-          "api_key": "API key"
+          "api_key": "API key",
+          "use_coordinates": "Use latitude and longitude without saving a place"
         },
         "data_description": {
           "host": "Full origin, for example https://sscape.leofabri.com. Do not add /api/v1."
@@ -15,7 +16,7 @@
       },
       "reauth_confirm": {
         "title": "Reconnect sScape",
-        "description": "Enter a new API key with places:read from the same sScape account. Existing devices and automations will be preserved.",
+        "description": "Enter a key from the same account with the required permissions: places:read for places, unrestricted integrations:read for coordinates. Devices and automations are preserved.",
         "data": {
           "api_key": "New API key"
         }
@@ -26,6 +27,17 @@
         "data": {
           "places": "Places to import",
           "follow_all_places": "Follow all authorized places, including future additions"
+        }
+      },
+      "coordinate_target": {
+        "title": "A point without saving a place",
+        "description": "Uses the sScape geographic API. The point stays in HA configuration; no place is added to your account. Coordinates are sent to sScape to obtain the assessment.",
+        "data": {
+          "name": "Name in Home Assistant",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "radius_km": "Monitored radius (km)",
+          "enabled": "Monitor this point"
         }
       }
     },
@@ -38,7 +50,9 @@
       "wrong_account": "This key belongs to a different account. Use a key from the originally linked account.",
       "select_places": "Select a place or explicitly choose Follow all.",
       "invalid_places": "Select only places authorized by this key.",
-      "server_update_required": "Update the sScape server to support explicit place selection."
+      "server_update_required": "Update the sScape server to support explicit place selection.",
+      "coordinate_access_denied": "Requires integrations:read, an API plan and a key not restricted to places.",
+      "invalid_coordinates": "Check name, latitude (−90…90), longitude (−180…180) and radius (1–1000 km)."
     },
     "abort": {
       "already_configured": "This sScape account is already configured on this server.",
@@ -55,16 +69,84 @@
           "update_interval": "Update interval (seconds, 60–900)",
           "follow_all_places": "Follow all authorized places, including future additions",
           "weather_enabled": "Weather and hourly forecasts",
-          "push_updates": "Push updates when supported by the server"
+          "push_updates": "Push updates when supported by the server",
+          "configure_more": "After saving, configure"
+        }
+      },
+      "coordinate": {
+        "title": "Coordinate targets",
+        "description": "Add or edit up to 10 points. Turn monitoring off to pause a point; HA history is preserved.",
+        "data": {
+          "target": "Target"
+        }
+      },
+      "coordinate_details": {
+        "title": "A point without saving a place",
+        "description": "Uses the sScape geographic API. The point stays in HA configuration; no place is added to your account. Coordinates are sent to sScape to obtain the assessment.",
+        "data": {
+          "name": "Name in Home Assistant",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "radius_km": "Monitored radius (km)",
+          "enabled": "Monitor this point"
+        }
+      },
+      "local_sensors": {
+        "title": "Your local instruments",
+        "description": "Choose the target for these instruments. Values stay in Home Assistant and do not alter sScape assessments.",
+        "data": {
+          "target": "Place or point"
+        }
+      },
+      "local_sensor_details": {
+        "title": "Select outdoor sensors",
+        "description": "Bind only weather instruments at this location, not indoor sensors or forecasts. Units are checked and converted. Missing or stale readings never become zero. A counter is not interpreted as rain rate.",
+        "data": {
+          "temperature": "Outdoor temperature",
+          "humidity": "Outdoor humidity",
+          "pressure": "Atmospheric pressure",
+          "wind_speed": "Wind speed",
+          "wind_gust": "Wind gust",
+          "rain_rate": "Rain rate",
+          "rain_counter": "Rain counter, period defined by the sensor",
+          "confirm_outdoor": "I confirm these are outdoor weather instruments for this target"
+        }
+      },
+      "notifications": {
+        "title": "One notification per episode",
+        "description": "Optional. Groups places only when sScape supplies the same event ID and source. No startup replay or all-clear inferred from missing data. Uses a notify service, for example the Companion App.",
+        "data": {
+          "episode_notifications": "Enable grouped notifications",
+          "notify_service": "Notification destination",
+          "episode_kinds": "Episode types"
+        }
+      },
+      "assist": {
+        "title": "Ask Assist",
+        "description": "Use phrases such as “sScape briefing at Home” or “sScape rain forecast at Home”. Works with the built-in Home Assistant agent. Requires exposed entities and read permission. Optional aliases: one line “Place name = home, garden”. Ambiguous names are not answered.",
+        "data": {
+          "assist_enabled": "Enable sScape sentences",
+          "assist_allow_anonymous": "Allow requests without a user identity, such as shared voice satellites",
+          "expose_selected_entities": "Expose risk and weather of selected targets to Assist now",
+          "aliases": "Place aliases (optional)"
         }
       }
     },
     "error": {
-      "invalid_places": "Select only places belonging to this account."
+      "invalid_places": "Select only places belonging to this account.",
+      "invalid_coordinates": "Check name, latitude (−90…90), longitude (−180…180) and radius (1–1000 km).",
+      "outdoor_required": "Confirm these are outdoor instruments at the target.",
+      "invalid_local_sensor": "Sensor missing, incompatible units, or an sScape forecast.",
+      "invalid_notify_service": "Choose an available notify service.",
+      "invalid_aliases": "Use one line “Place name = alias, another alias”. The name must match exactly one selected target.",
+      "coordinate_access_denied": "Requires integrations:read, an API plan and a key not restricted to places.",
+      "invalid_auth": "The API key is invalid, revoked or expired.",
+      "cannot_connect": "Cannot read the sScape API. Check the server address and try again later."
     },
     "abort": {
       "invalid_auth": "Check the API key and authorized places.",
-      "cannot_connect": "sScape is unavailable. Try again later."
+      "cannot_connect": "sScape is unavailable. Try again later.",
+      "invalid_places": "Select only places belonging to this account."
     }
   },
   "entity": {
@@ -151,11 +233,66 @@
       },
       "precipitation_outlook": {
         "name": "Precipitation in upcoming hours",
-        "state": {"expected": "Forecast", "not_expected": "Not forecast", "data_incomplete": "Incomplete forecast"}
+        "state": {
+          "expected": "Forecast",
+          "not_expected": "Not forecast",
+          "data_incomplete": "Incomplete forecast"
+        }
       },
-      "next_rain_window": {"name": "Next forecast precipitation window within 24h"},
-      "gust_peak_time": {"name": "End of forecast peak gust hour within 24h"},
-      "temperature_minimum_time": {"name": "Coldest forecast hour within 24h"}
+      "next_rain_window": {
+        "name": "Next forecast precipitation window within 24h"
+      },
+      "gust_peak_time": {
+        "name": "End of forecast peak gust hour within 24h"
+      },
+      "temperature_minimum_time": {
+        "name": "Coldest forecast hour within 24h"
+      },
+      "official_warning_details": {
+        "name": "Primary warning in monitored area"
+      },
+      "official_warning_expires": {
+        "name": "Primary warning expiry"
+      },
+      "latest_earthquake_magnitude": {
+        "name": "Latest earthquake magnitude"
+      },
+      "latest_earthquake_distance": {
+        "name": "Latest earthquake distance"
+      },
+      "latest_earthquake_time": {
+        "name": "Latest earthquake time"
+      },
+      "nearest_thermal_detection": {
+        "name": "Nearest thermal detection distance"
+      },
+      "forecast_snowfall": {
+        "name": "Forecast snowfall next 24 hours"
+      },
+      "forecast_visibility": {
+        "name": "Minimum forecast visibility next 24 hours"
+      },
+      "local_temperature": {
+        "name": "Local · Outdoor temperature"
+      },
+      "local_humidity": {
+        "name": "Local · Outdoor humidity"
+      },
+      "local_pressure": {
+        "name": "Local · Atmospheric pressure"
+      },
+      "local_wind_speed": {
+        "name": "Local · Wind speed"
+      },
+      "local_wind_gust": {
+        "name": "Local · Wind gust"
+      },
+      "local_rain_rate": {
+        "name": "Local · Rain rate"
+      },
+      "local_rain_counter": {
+        "name": "Local · Rain counter, period defined by the sensor"
+      }
     },
     "binary_sensor": {
       "analysis_stale": {
@@ -209,13 +346,16 @@
     },
     "get_dashboard": {
       "name": "Generate place dashboard",
-      "description": "Return ready-to-import YAML with actual entity IDs and native cards only. Does not create or overwrite dashboards. Administrator access required.",
+      "description": "Returns YAML and JSON configuration for preview. Does not create or modify dashboards. For guided creation open sScape setup. Administrator only.",
       "fields": {
         "device_id": {
           "name": "sScape place"
         },
         "all_selected_places": {
           "name": "Include all imported places"
+        },
+        "include_optional": {
+          "name": "Include optional indicators in preview"
         }
       }
     },
@@ -223,8 +363,35 @@
       "name": "Read upcoming weather windows",
       "description": "Return cached forecast rain windows, hourly gust peak and coldest hourly estimate. Does not operate devices. Administrator access required.",
       "fields": {
-        "device_id": {"name": "sScape place"},
-        "hours": {"name": "Lookahead hours"}
+        "device_id": {
+          "name": "sScape place"
+        },
+        "hours": {
+          "name": "Lookahead hours"
+        }
+      }
+    },
+    "get_hazards": {
+      "name": "Read warnings and events",
+      "description": "Returns current evidence, sources, distances and times without extra network requests. Catalogues may be partial. Administrator only.",
+      "fields": {
+        "device_id": {
+          "name": "sScape place"
+        }
+      }
+    },
+    "get_setup": {
+      "name": "Read dashboard setup",
+      "description": "Lists selected targets and entities for preview. Does not return API keys or modify dashboards. Administrator only."
+    }
+  },
+  "selector": {
+    "episode_kinds": {
+      "options": {
+        "storm": "Tracked storms",
+        "official": "Official warnings",
+        "earthquake": "Recent earthquakes",
+        "thermal": "Satellite thermal detections"
       }
     }
   }

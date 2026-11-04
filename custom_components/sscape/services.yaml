@@ -24,6 +24,25 @@ get_dashboard:
       default: false
       selector:
         boolean:
+    include_optional:
+      name: Include optional indicators in preview
+      description: Does not enable entities. User-disabled and excluded entities remain excluded.
+      default: false
+      selector:
+        boolean:
+get_setup:
+  name: Read dashboard setup
+  description: List selected targets and scoped entity IDs for the admin setup panel. No API keys, dashboard writes or network requests. Administrator access required.
+get_hazards:
+  name: Read warnings and events
+  description: Current warning, earthquake and thermal evidence with source, times and distances. Catalogues may be partial. Administrator access required.
+  fields:
+    device_id:
+      name: sScape place
+      required: true
+      selector:
+        device:
+          integration: sscape
 get_outlook:
   name: Read upcoming weather windows
   description: Return cached hourly rain windows, peak one-hour gust timing and coldest hourly estimate. Forecast data, not observations or exact onset times. Administrator access required.

@@ -5,6 +5,7 @@ import logging
 import random
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
+from time import monotonic
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -17,6 +18,7 @@ from .api import (
     CannotConnect,
     PermissionDenied,
     PlaceCatalog,
+    PlaceSnapshot,
     RateLimited,
     SScapeClient,
 )
@@ -30,6 +32,7 @@ from .const import (
     MAX_INTERVAL,
     MIN_INTERVAL,
 )
+from .targets import points_for
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +55,10 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
         self._stale_since = None
         self.stopping = False
         self.failure_reason = None
+        self.client.points = points_for(entry)
+        self.client.account_id = entry.data.get(CONF_ACCOUNT_ID)
+        self.point_failures = {}
+        self._point_cache = {}
         super().__init__(
             hass,
             _LOGGER,
@@ -63,17 +70,60 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
     async def _async_update_data(self) -> AccountSnapshot:
         try:
             if self.catalog is None:
-                self.catalog = await self.client.async_get_catalog()
+                self.catalog = (
+                    PlaceCatalog(self.config_entry.data[CONF_ACCOUNT_ID], {}, False)
+                    if self.config_entry.options.get("coordinate_only", False)
+                    else await self.client.async_get_catalog()
+                )
                 if self.catalog.account_id != self.config_entry.data[CONF_ACCOUNT_ID]:
                     raise AuthenticationError("API key belongs to another account")
             selected = (
-                None
-                if self.config_entry.options.get(CONF_FOLLOW_ALL, False)
-                else self.config_entry.options.get(CONF_PLACES, [])
+                []
+                if self.config_entry.options.get("coordinate_only", False)
+                else (
+                    None
+                    if self.config_entry.options.get(CONF_FOLLOW_ALL, False)
+                    else self.config_entry.options.get(CONF_PLACES, [])
+                )
             )
             data = await self.client.async_get_snapshot(selected)
             if data.account_id and data.account_id != self.config_entry.data[CONF_ACCOUNT_ID]:
                 raise AuthenticationError("API key belongs to another account")
+            if self.client.points:
+
+                async def fetch(point):
+                    previous = self._point_cache.get(point["id"])
+                    if previous and monotonic() - previous[0] < self._base_interval:
+                        return previous[1]
+                    async with self.weather_slots:
+                        try:
+                            value = await self.client.async_get_point(
+                                point, self.config_entry.data[CONF_ACCOUNT_ID]
+                            )
+                            self.point_failures.pop(point["id"], None)
+                        except AuthenticationError:
+                            raise
+                        except (CannotConnect, PermissionDenied) as error:
+                            if isinstance(
+                                error, PermissionDenied
+                            ) and self.config_entry.options.get("coordinate_only"):
+                                raise
+                            self.point_failures[point["id"]] = (
+                                "access_denied"
+                                if isinstance(error, PermissionDenied)
+                                else "unavailable"
+                            )
+                            value = PlaceSnapshot(point["id"], point["name"], {}, False)
+                        self._point_cache[point["id"]] = (monotonic(), value)
+                        return value
+
+                point_values = await asyncio.gather(
+                    *(fetch(point) for point in self.client.points.values())
+                )
+                data = AccountSnapshot(
+                    self.config_entry.data[CONF_ACCOUNT_ID],
+                    data.places | {point.place_id: point for point in point_values},
+                )
         except (AuthenticationError, PermissionDenied) as err:
             if self.stopping:
                 raise asyncio.CancelledError from None
@@ -81,7 +131,7 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
                 "access_denied" if isinstance(err, PermissionDenied) else "authentication_failed"
             )
             raise ConfigEntryAuthFailed(
-                "Check the API key, places:read scope and API access plan"
+                "Check the API key, required read scopes and API access plan"
             ) from None
         except RateLimited as err:
             self.failure_reason = "rate_limited"
@@ -145,6 +195,10 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
     async def async_shutdown(self):
         """Stop once, await the stream, and forbid refresh-triggered restarts."""
         self.stopping = True
+        if assist := getattr(self, "assist_manager", None):
+            assist.remove(self)
+        if notifications := getattr(self, "episode_notifications", None):
+            await notifications.async_shutdown()
         await super().async_shutdown()
         if self._stream_task is not None and self._stream_task is not asyncio.current_task():
             self._stream_task.cancel()
@@ -152,6 +206,8 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
                 await self._stream_task
         for coordinator in self.weather_coordinators.values():
             await coordinator.async_shutdown()
+        if local := getattr(self, "local_coordinator", None):
+            await local.async_shutdown()
 
     async def _stream_loop(self):
         failures = 0
