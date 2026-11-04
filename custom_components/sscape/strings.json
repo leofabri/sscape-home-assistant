@@ -148,7 +148,14 @@
       },
       "forecast_gust": {
         "name": "Forecast peak gust next 24h"
-      }
+      },
+      "precipitation_outlook": {
+        "name": "Precipitation in upcoming hours",
+        "state": {"expected": "Forecast", "not_expected": "Not forecast", "data_incomplete": "Incomplete forecast"}
+      },
+      "next_rain_window": {"name": "Next forecast precipitation window within 24h"},
+      "gust_peak_time": {"name": "End of forecast peak gust hour within 24h"},
+      "temperature_minimum_time": {"name": "Coldest forecast hour within 24h"}
     },
     "binary_sensor": {
       "analysis_stale": {
@@ -206,7 +213,18 @@
       "fields": {
         "device_id": {
           "name": "sScape place"
+        },
+        "all_selected_places": {
+          "name": "Include all imported places"
         }
+      }
+    },
+    "get_outlook": {
+      "name": "Read upcoming weather windows",
+      "description": "Return cached forecast rain windows, hourly gust peak and coldest hourly estimate. Does not operate devices. Administrator access required.",
+      "fields": {
+        "device_id": {"name": "sScape place"},
+        "hours": {"name": "Lookahead hours"}
       }
     }
   }

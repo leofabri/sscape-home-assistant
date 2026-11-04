@@ -18,3 +18,29 @@ get_dashboard:
       selector:
         device:
           integration: sscape
+    all_selected_places:
+      name: Include all imported places
+      description: Overview and detail views for this account's explicitly imported places only.
+      default: false
+      selector:
+        boolean:
+get_outlook:
+  name: Read upcoming weather windows
+  description: Return cached hourly rain windows, peak one-hour gust timing and coldest hourly estimate. Forecast data, not observations or exact onset times. Administrator access required.
+  fields:
+    device_id:
+      name: sScape place
+      required: true
+      selector:
+        device:
+          integration: sscape
+    hours:
+      name: Lookahead hours
+      description: Coverage is rounded outward to whole forecast hours. Missing periods remain unknown.
+      default: 6
+      selector:
+        number:
+          min: 1
+          max: 24
+          step: 1
+          mode: box

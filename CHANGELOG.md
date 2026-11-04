@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- New precipitation-outlook sensor: forecast, not forecast, or incomplete data. No false dry result across missing hours.
+- Optional forecast timestamps for the next precipitation window, peak one-hour gust period and coldest hourly estimate. No exact-onset, ground-frost or mixed-duration gust claims.
+- Read-only `sscape.get_outlook` action for cached 1–24 hour planning windows, coverage and attribution. Respects the API's declared next-complete-hour start.
+- `sscape.get_dashboard` can generate an overview and per-place views for all explicitly imported places. Optional timing cards are conditional; unavailable risk information remains visible.
+- Place-map links use the existing supported deep link. Current storm URLs are returned by the briefing action instead of baking a soon-outdated storm ID into a long-lived dashboard.
+- Opt-in precipitation blueprint: user-selected actions, confirmation time, no startup/restoration/attribute-change triggers.
+- Shared initial forecast requests are coordinator-owned, so removing one sensor cannot cancel the weather entity's data.
+- Safe diagnostics before setup/after unload and distinct authentication, permission and connection failure reasons. Includes all 0.3.2 unload/reauth fixes.
+
 ## 0.3.2
 
 - Fixed `FAILED_UNLOAD` on Home Assistant 2026.10.4 with push enabled: the old stream-cancellation callback returned a boolean where HA expected no result or a coroutine.

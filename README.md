@@ -4,6 +4,36 @@ Un dispositivo per ogni luogo seguito, configurato dall’interfaccia di Home
 Assistant. Nessun YAML obbligatorio, nessuna porta da aprire, nessuna password
 dell’account da consegnare all’integrazione.
 
+## Novità della 0.4
+
+- **Precipitazioni nelle prossime ore**: un nuovo sensore mostra «Previste»,
+  «Non previste» oppure «Previsione incompleta», senza trasformare dati mancanti
+  in bel tempo. Usa le prossime sei ore del prodotto disponibile.
+- **Quando cambia**: dalla pagina del dispositivo puoi abilitare la prossima
+  fascia di precipitazioni, l’ora della raffica massima oraria e l’ora più fredda.
+  Questi tre orari coprono 24 ore, come i sensori numerici di minima e raffica;
+  l’indicatore sintetico delle precipitazioni guarda invece alle prossime sei.
+  Sono previsioni orarie, non orari esatti di inizio o misure al suolo.
+- **Tutti i tuoi luoghi**: in `sscape.get_dashboard` attiva **Includi tutti i
+  luoghi importati**. Ottieni una panoramica e una vista per ciascun luogo scelto,
+  mai per quelli esclusi. Arrivo del temporale e orari non pertinenti restano
+  nascosti, mentre rischio e indisponibilità dei dati restano visibili.
+- **Automazioni e annunci**: `sscape.get_outlook` restituisce fasce di
+  precipitazioni, raffica massima e ora più fredda per 1–24 ore, senza ulteriori
+  richieste API. Il nuovo blueprint per le precipitazioni esegue soltanto le
+  azioni che scegli tu, senza attivazioni all’avvio o al ritorno da un guasto.
+
+La previsione sScape normalmente parte dalla prossima ora completa. Il campo
+`period_start` indica da quando è coperta: non descrive i minuti immediatamente
+successivi. Le finestre rispettano le ore originali del modello; non stimiamo
+arbitrariamente minuti mancanti. Se il prodotto include l’ora in corso, gli
+accumuli possono comprenderne la parte già trascorsa. Le quantità sono sull’intera
+ora, mai una stima della pioggia ancora da cadere. Una raffica massima su tre ore
+non entra nel picco orario; la minima dell’aria non conferma gelo al suolo.
+
+Per aggiornare una dashboard già importata, genera nuovamente lo YAML e usalo in
+una **nuova** dashboard: non modifichiamo o sovrascriviamo quelle esistenti.
+
 ## Novità della 0.3
 
 - Aggiornamenti push **in uscita** per i luoghi autorizzati; polling di recupero
@@ -180,6 +210,15 @@ degli attributi. Il secondo usa una soglia e un tempo di conferma scelti da te,
 per esempio su una raffica di stazione o sulla minima **prevista**. Non classifica
 automaticamente gelo al suolo, danni o sicurezza di una tenda. Nessun dispositivo
 viene comandato automaticamente dall’integrazione.
+
+Per il nuovo sensore di previsione puoi importare anche:
+
+`https://github.com/leofabri/sscape-home-assistant/blob/main/blueprints/automation/sscape/forecast_precipitation.yaml`
+
+Il passaggio richiesto è «Non previste → Previste», confermato per il tempo
+scelto. Dati incompleti, aggiornamenti dei soli attributi e ripristini da
+indisponibilità non eseguono azioni. Non esiste un’azione automatica di «cessato
+pericolo» e non viene comandato alcun dispositivo senza la tua configurazione.
 
 ## Credenziali e diagnostica
 

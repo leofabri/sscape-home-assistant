@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from contextlib import suppress
 from datetime import timedelta
 
 from homeassistant.components.weather import SingleCoordinatorWeatherEntity, WeatherEntityFeature
@@ -22,6 +23,7 @@ class SScapeWeatherCoordinator(DataUpdateCoordinator[WeatherSnapshot]):
     def __init__(self, hass, parent, place_id):
         self.parent = parent
         self.place_id = place_id
+        self._initial_refresh_task = None
         super().__init__(
             hass,
             _LOGGER,
@@ -52,6 +54,16 @@ class SScapeWeatherCoordinator(DataUpdateCoordinator[WeatherSnapshot]):
             raise UpdateFailed("No fresh licensed model forecast is available")
         return data
 
+    async def async_shutdown(self):
+        await super().async_shutdown()
+        if (
+            self._initial_refresh_task is not None
+            and self._initial_refresh_task is not asyncio.current_task()
+        ):
+            self._initial_refresh_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._initial_refresh_task
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     if not entry.options.get(CONF_WEATHER, True):
@@ -70,11 +82,13 @@ def get_weather_coordinator(hass, parent, place_id):
     return parent.weather_coordinators[place_id]
 
 
-def start_weather_refresh(hass, coordinator, on_remove):
-    if not getattr(coordinator, "initial_refresh_started", False):
-        coordinator.initial_refresh_started = True
-        task = hass.async_create_task(coordinator.async_refresh())
-        on_remove(task.cancel)
+def start_weather_refresh(hass, coordinator):
+    # Weather and numeric/planning sensors share this request. Removing just
+    # one entity must not cancel data needed by the others.
+    if coordinator._initial_refresh_task is None:
+        coordinator._initial_refresh_task = coordinator.config_entry.async_create_task(
+            hass, coordinator.async_refresh(), "sscape initial forecast"
+        )
 
 
 class SScapeWeather(SingleCoordinatorWeatherEntity[SScapeWeatherCoordinator]):
@@ -95,7 +109,7 @@ class SScapeWeather(SingleCoordinatorWeatherEntity[SScapeWeatherCoordinator]):
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
         self.async_on_remove(self.parent.async_add_listener(self._handle_coordinator_update))
-        start_weather_refresh(self.hass, self.coordinator, self.async_on_remove)
+        start_weather_refresh(self.hass, self.coordinator)
 
     @property
     def available(self):

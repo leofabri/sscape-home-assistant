@@ -148,7 +148,14 @@
       },
       "forecast_gust": {
         "name": "Raffica massima prevista nelle prossime 24 ore"
-      }
+      },
+      "precipitation_outlook": {
+        "name": "Precipitazioni nelle prossime ore",
+        "state": {"expected": "Previste", "not_expected": "Non previste", "data_incomplete": "Previsione incompleta"}
+      },
+      "next_rain_window": {"name": "Prossima fascia di precipitazioni entro 24 ore"},
+      "gust_peak_time": {"name": "Fine dell’ora con raffica massima prevista entro 24 ore"},
+      "temperature_minimum_time": {"name": "Ora più fredda prevista entro 24 ore"}
     },
     "binary_sensor": {
       "analysis_stale": {
@@ -206,7 +213,18 @@
       "fields": {
         "device_id": {
           "name": "Luogo sScape"
+        },
+        "all_selected_places": {
+          "name": "Includi tutti i luoghi importati"
         }
+      }
+    },
+    "get_outlook": {
+      "name": "Leggi le prossime fasce meteo",
+      "description": "Restituisce fasce di precipitazioni previste, ora della raffica massima e ora più fredda, dai dati in cache. Non controlla dispositivi. Richiede accesso amministratore.",
+      "fields": {
+        "device_id": {"name": "Luogo sScape"},
+        "hours": {"name": "Ore da considerare"}
       }
     }
   }

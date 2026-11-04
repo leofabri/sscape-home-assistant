@@ -4,11 +4,29 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, Sen
 from homeassistant.const import UnitOfLength, UnitOfSpeed, UnitOfTemperature
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import _time
 from .entity import async_watch_places, place_device_info
 from .forecast import number
+from .planning import make_outlook
 from .weather import get_weather_coordinator, start_weather_refresh
 
 DESCRIPTIONS = (
+    SensorEntityDescription(
+        key="precipitation_outlook",
+        translation_key="precipitation_outlook",
+        icon="mdi:weather-rainy",
+        device_class=SensorDeviceClass.ENUM,
+        options=["expected", "not_expected", "data_incomplete"],
+    ),
+    *(
+        SensorEntityDescription(
+            key=key,
+            translation_key=key,
+            device_class=SensorDeviceClass.TIMESTAMP,
+            entity_registry_enabled_default=False,
+        )
+        for key in ("next_rain_window", "gust_peak_time", "temperature_minimum_time")
+    ),
     SensorEntityDescription(
         key="minimum_temperature_c",
         translation_key="forecast_minimum",
@@ -31,6 +49,12 @@ DESCRIPTIONS = (
         entity_registry_enabled_default=False,
     ),
 )
+PLANNING_KEYS = {
+    "precipitation_outlook",
+    "next_rain_window",
+    "gust_peak_time",
+    "temperature_minimum_time",
+}
 
 
 def setup_outlook_sensors(hass, entry, async_add_entities):
@@ -59,7 +83,7 @@ class SScapeOutlook(CoordinatorEntity, SensorEntity):
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
         self.async_on_remove(self.parent.async_add_listener(self._handle_coordinator_update))
-        start_weather_refresh(self.hass, self.coordinator, self.async_on_remove)
+        start_weather_refresh(self.hass, self.coordinator)
 
     @property
     def available(self):
@@ -69,7 +93,7 @@ class SScapeOutlook(CoordinatorEntity, SensorEntity):
             and self.place_id in self.parent.data.places
             and self.coordinator.data
             and self.coordinator.data.is_fresh()
-            and self.native_value is not None
+            and (self.entity_description.key in PLANNING_KEYS or self.native_value is not None)
         )
 
     @property
@@ -77,6 +101,19 @@ class SScapeOutlook(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
         key = self.entity_description.key
+        if key in PLANNING_KEYS:
+            plan = self._plan()
+            if not plan["available"]:
+                return None
+            if key == "precipitation_outlook":
+                status = plan["precipitation"]["status"]
+                return "data_incomplete" if status == "unknown" else status
+            if key == "next_rain_window":
+                window = plan["precipitation"]["first_window"]
+                return _time(window["start"]) if window else None
+            if key == "gust_peak_time":
+                return _time(plan["wind_gust"]["period_end"])
+            return _time(plan["temperature"]["time"])
         return number(
             self.coordinator.data.raw.get(key), nonnegative=key != "minimum_temperature_c"
         )
@@ -86,6 +123,20 @@ class SScapeOutlook(CoordinatorEntity, SensorEntity):
         if not self.available:
             return None
         raw = self.coordinator.data.raw
+        if self.entity_description.key in PLANNING_KEYS:
+            plan = self._plan()
+            category = (
+                "wind_gust"
+                if self.entity_description.key == "gust_peak_time"
+                else "temperature"
+                if self.entity_description.key == "temperature_minimum_time"
+                else "precipitation"
+            )
+            return {
+                key: value
+                for key, value in plan.items()
+                if key not in ("precipitation", "wind_gust", "temperature")
+            } | {"outlook": plan.get(category)}
         return {
             "data_kind": "model_forecast",
             "period_start": raw.get("start"),
@@ -95,3 +146,8 @@ class SScapeOutlook(CoordinatorEntity, SensorEntity):
             "source_details": raw.get("source_details"),
             "fetched_at": raw.get("fetched_at"),
         }
+
+    def _plan(self):
+        # Timestamp companions share the 24h horizon of the numeric sensors.
+        hours = 6 if self.entity_description.key == "precipitation_outlook" else 24
+        return make_outlook(self.coordinator.data, hours=hours)

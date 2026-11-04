@@ -1,0 +1,41 @@
+blueprint:
+  name: sScape - Precipitazioni previste nelle prossime ore
+  description: >-
+    Esegue soltanto le azioni scelte da te quando una previsione completa passa
+    da nessuna precipitazione a precipitazioni previste. Non reagisce all'avvio,
+    a dati incompleti o al ritorno da Non disponibile. Non indica l'ora esatta
+    di inizio della pioggia e non garantisce condizioni sicure.
+  domain: automation
+  homeassistant:
+    min_version: 2026.2.3
+  input:
+    outlook_sensor:
+      name: Precipitazioni nelle prossime ore
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: sscape
+    confirmation_minutes:
+      name: Conferma per quanti minuti
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          unit_of_measurement: min
+    actions:
+      name: Azioni scelte da te
+      default: []
+      selector:
+        action:
+triggers:
+  - trigger: state
+    entity_id: !input outlook_sensor
+    from: not_expected
+    to: expected
+    for:
+      minutes: !input confirmation_minutes
+actions: !input actions
+mode: single

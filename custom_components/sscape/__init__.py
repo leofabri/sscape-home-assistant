@@ -56,7 +56,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> b
         other.entry_id != entry.entry_id and other.state.value == "loaded"
         for other in hass.config_entries.async_entries(DOMAIN)
     ):
-        for name in ("get_briefing", "get_dashboard"):
+        for name in ("get_briefing", "get_dashboard", "get_outlook"):
             hass.services.async_remove(DOMAIN, name)
     return unloaded
 

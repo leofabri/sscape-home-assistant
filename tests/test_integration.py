@@ -328,3 +328,27 @@ async def test_diagnostics_are_private(hass, entry, client):
     for forbidden in ("fictional-key", "account-1", "place-1", "Test place", "example.com"):
         assert forbidden not in text
     assert diagnostics["place_count"] == diagnostics["fresh_place_count"] == 1
+
+
+async def test_diagnostics_before_setup_and_after_unload(hass, entry, client):
+    value = await async_get_config_entry_diagnostics(hass, entry)
+    assert not value["runtime_available"]
+    assert value["config_entry_state"] == "not_loaded"
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    client.side_effect = PermissionDenied()
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    value = await async_get_config_entry_diagnostics(hass, entry)
+    assert value["failure_reason"] == "access_denied"
+    assert value["reauthentication_required"]
+    client.side_effect = CannotConnect()
+    await entry.runtime_data.async_refresh()
+    assert (await async_get_config_entry_diagnostics(hass, entry))[
+        "failure_reason"
+    ] == "cannot_connect"
+    client.side_effect = None
+    await entry.runtime_data.async_refresh()
+    assert (await async_get_config_entry_diagnostics(hass, entry))["failure_reason"] is None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert not (await async_get_config_entry_diagnostics(hass, entry))["runtime_available"]

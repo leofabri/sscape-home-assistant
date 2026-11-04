@@ -51,6 +51,7 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
         self._stream_task = None
         self._stale_since = None
         self.stopping = False
+        self.failure_reason = None
         super().__init__(
             hass,
             _LOGGER,
@@ -73,15 +74,20 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
             data = await self.client.async_get_snapshot(selected)
             if data.account_id and data.account_id != self.config_entry.data[CONF_ACCOUNT_ID]:
                 raise AuthenticationError("API key belongs to another account")
-        except (AuthenticationError, PermissionDenied):
+        except (AuthenticationError, PermissionDenied) as err:
             if self.stopping:
                 raise asyncio.CancelledError from None
+            self.failure_reason = (
+                "access_denied" if isinstance(err, PermissionDenied) else "authentication_failed"
+            )
             raise ConfigEntryAuthFailed(
                 "Check the API key, places:read scope and API access plan"
             ) from None
         except RateLimited as err:
+            self.failure_reason = "rate_limited"
             raise UpdateFailed("API rate limit reached", retry_after=err.retry_after) from None
         except CannotConnect:
+            self.failure_reason = "cannot_connect"
             self._failures += 1
             self.update_interval = timedelta(
                 seconds=min(MAX_INTERVAL, self._base_interval * 2 ** min(self._failures, 4))
@@ -89,6 +95,7 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
             raise UpdateFailed("sScape is temporarily unavailable") from None
         if self.stopping:
             raise asyncio.CancelledError
+        self.failure_reason = None
         self._failures = 0
         self.update_interval = timedelta(seconds=self._base_interval)
         self._update_repairs(data)

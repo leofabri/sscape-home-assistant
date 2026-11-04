@@ -59,6 +59,35 @@ async def test_threshold_blueprint_no_duplicates_or_unavailable_crossing(hass, f
     assert notify.await_count == 1
 
 
+async def test_precipitation_blueprint_ignores_unknown_restore_and_attribute_changes(hass):
+    notify = AsyncMock()
+    hass.services.async_register("test", "notify", notify)
+    config = expanded(
+        "forecast_precipitation.yaml",
+        {
+            "outlook_sensor": "sensor.test_outlook",
+            "confirmation_minutes": 0,
+            "actions": [{"action": "test.notify"}],
+        },
+    )
+    hass.states.async_set("sensor.test_outlook", "expected")
+    assert await async_setup_component(hass, "automation", {"automation": [config]})
+    await hass.async_block_till_done()
+    assert notify.await_count == 0
+    for state in ("unavailable", "expected", "data_incomplete", "expected"):
+        hass.states.async_set("sensor.test_outlook", state)
+        await hass.async_block_till_done()
+    assert notify.await_count == 0
+    hass.states.async_set("sensor.test_outlook", "not_expected")
+    await hass.async_block_till_done()
+    hass.states.async_set("sensor.test_outlook", "expected")
+    await hass.async_block_till_done()
+    assert notify.await_count == 1
+    hass.states.async_set("sensor.test_outlook", "expected", {"new_forecast": True})
+    await hass.async_block_till_done()
+    assert notify.await_count == 1
+
+
 async def test_event_blueprint_ignores_attribute_refresh_and_outage_restore(hass):
     notify = AsyncMock()
     hass.services.async_register("test", "notify", notify)
