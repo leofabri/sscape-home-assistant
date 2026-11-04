@@ -73,5 +73,7 @@ actions:
           - condition: trigger
             id: cleared
           - condition: template
-            value_template: "{{ trigger.to_state.state == 'low' }}"
+            value_template: >-
+              {{ trigger.to_state.state == 'low'
+                 and trigger.to_state.attributes.get('data_quality_status') not in ['unknown','stale'] }}
         sequence: !input notify_cleared

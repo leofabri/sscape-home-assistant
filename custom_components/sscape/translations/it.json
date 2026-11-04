@@ -54,7 +54,8 @@
           "places": "Luoghi seguiti",
           "update_interval": "Intervallo di aggiornamento (secondi, 60–900)",
           "follow_all_places": "Segui tutti i luoghi autorizzati, anche futuri",
-          "weather_enabled": "Meteo e previsioni orarie"
+          "weather_enabled": "Meteo e previsioni orarie",
+          "push_updates": "Aggiornamenti push, se supportati dal server"
         }
       }
     },
@@ -94,6 +95,59 @@
       },
       "earthquake_count": {
         "name": "Sismi nel raggio di ricerca (24 h)"
+      },
+      "data_quality": {
+        "name": "Qualità e disponibilità dei dati",
+        "state": {
+          "unknown": "Copertura non verificata",
+          "partial": "Copertura parziale",
+          "stale": "Dati in ritardo"
+        }
+      },
+      "phase": {
+        "name": "Fase del temporale",
+        "state": {
+          "quiet": "Nessun temporale segnalato",
+          "watch": "Da monitorare",
+          "approach": "In avvicinamento",
+          "impact": "Possibile impatto"
+        }
+      },
+      "eta_min": {
+        "name": "Arrivo: limite iniziale"
+      },
+      "eta_max": {
+        "name": "Arrivo: limite finale"
+      },
+      "storm_distance": {
+        "name": "Distanza del temporale"
+      },
+      "radar_updated": {
+        "name": "Ora del radar"
+      },
+      "official_count": {
+        "name": "Allerte locali nel catalogo"
+      },
+      "observed_temperature": {
+        "name": "Stazione: temperatura"
+      },
+      "observed_wind": {
+        "name": "Stazione: vento"
+      },
+      "observed_gust": {
+        "name": "Stazione: raffica"
+      },
+      "observed_humidity": {
+        "name": "Stazione: umidità"
+      },
+      "forecast_minimum": {
+        "name": "Minima prevista nelle prossime 24 ore"
+      },
+      "forecast_rain": {
+        "name": "Pioggia prevista nelle prossime 24 ore"
+      },
+      "forecast_gust": {
+        "name": "Raffica massima prevista nelle prossime 24 ore"
       }
     },
     "binary_sensor": {
@@ -122,6 +176,37 @@
     "weather": {
       "forecast": {
         "name": "Meteo stimato e previsioni"
+      }
+    },
+    "event": {
+      "conditions_changed": {
+        "name": "Cambiamenti della situazione"
+      }
+    }
+  },
+  "issues": {
+    "data_delayed": {
+      "title": "Alcune osservazioni sScape sono in ritardo",
+      "description": "Da almeno cinque minuti alcune osservazioni risultano scadute. Un’analisi appena generata non rende nuovi i dati meteorologici. Controlla il sensore Qualità e disponibilità dei dati; non trattare i dati assenti come cessato allarme."
+    }
+  },
+  "services": {
+    "get_briefing": {
+      "name": "Leggi il briefing attuale",
+      "description": "Restituisce la valutazione attuale del luogo scelto. Non controlla dispositivi. Richiede accesso amministratore.",
+      "fields": {
+        "device_id": {
+          "name": "Luogo sScape"
+        }
+      }
+    },
+    "get_dashboard": {
+      "name": "Genera la dashboard del luogo",
+      "description": "Restituisce lo YAML pronto con gli identificativi reali delle entità e sole card native. Non crea né sovrascrive dashboard. Richiede accesso amministratore.",
+      "fields": {
+        "device_id": {
+          "name": "Luogo sScape"
+        }
       }
     }
   }

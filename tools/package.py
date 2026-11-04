@@ -7,6 +7,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
+    "actions.py",
     "__init__.py",
     "api.py",
     "binary_sensor.py",
@@ -15,9 +16,14 @@ FILES = (
     "coordinator.py",
     "diagnostics.py",
     "entity.py",
+    "event.py",
     "forecast.py",
     "manifest.json",
+    "measurements.py",
+    "outlook.py",
     "sensor.py",
+    "services.yaml",
+    "stream.py",
     "weather.py",
     "strings.json",
     "translations/en.json",

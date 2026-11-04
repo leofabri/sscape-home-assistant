@@ -70,3 +70,12 @@ async def test_real_blueprint_worsening_no_duplicates_no_false_clear(hass, freez
     await hass.async_block_till_done()
     assert notify.await_count == 3
     assert notify.call_args.args[0].data["kind"] == "cleared"
+    hass.states.async_set("sensor.test_risk", "high")
+    await hass.async_block_till_done()
+    assert notify.await_count == 4
+    hass.states.async_set("sensor.test_risk", "low", {"data_quality_status": "unknown"})
+    await hass.async_block_till_done()
+    freezer.move_to(dt_util.utcnow() + timedelta(minutes=3))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert notify.await_count == 4

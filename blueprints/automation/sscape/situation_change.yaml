@@ -1,0 +1,49 @@
+blueprint:
+  name: sScape · Cambiamenti della situazione
+  description: >-
+    Reagisce agli eventi selezionati, non a ogni aggiornamento del briefing.
+    Ignora ripristini dopo un'interruzione e non configura azioni automatiche.
+    Le informazioni mancanti non indicano cessato allarme.
+  domain: automation
+  homeassistant:
+    min_version: 2026.2.3
+  input:
+    event_entity:
+      name: Eventi del luogo sScape
+      selector:
+        entity:
+          filter:
+            - integration: sscape
+              domain: event
+    event_types:
+      name: Cambiamenti da considerare
+      default: [risk_increased, storm_approaching, data_degraded]
+      selector:
+        select:
+          multiple: true
+          options: [risk_increased, risk_decreased, storm_approaching, storm_moving_away, official_warning_changed, data_degraded, data_recovered]
+    actions:
+      name: Azioni scelte da te
+      selector:
+        action: {}
+mode: single
+max_exceeded: silent
+variables:
+  selected_events: !input event_types
+triggers:
+  - trigger: state
+    entity_id: !input event_entity
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and trigger.to_state is not none
+         and trigger.from_state.state not in ['unknown','unavailable']
+         and trigger.to_state.state not in ['unknown','unavailable']
+         and trigger.from_state.state != trigger.to_state.state
+         and trigger.to_state.attributes.get('event_type') in selected_events }}
+actions:
+  - variables:
+      sscape_event_type: "{{ trigger.to_state.attributes.get('event_type') }}"
+      sscape_risk: "{{ trigger.to_state.attributes.get('risk_level') }}"
+      sscape_assessment_time: "{{ trigger.to_state.attributes.get('assessment_time') }}"
+  - sequence: !input actions

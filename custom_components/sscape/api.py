@@ -2,6 +2,7 @@
 
 import json
 import math
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
@@ -135,6 +136,9 @@ class PlaceSnapshot:
 
     @property
     def eta_minutes(self) -> int | float | None:
+        window = self.briefing.get("time_window")
+        if isinstance(window, dict) and window.get("reliability") != "stable":
+            return None
         value = self.briefing.get("approach_eta_minutes")
         if (
             self.briefing.get("situation_phase") != "approach"
@@ -157,6 +161,7 @@ class PlaceSnapshot:
             "primary_signal",
             "exposure",
             "exposure_source",
+            "data_quality_status",
         )
         return {key: text for key in fields if (text := _text(self.briefing.get(key)))}
 
@@ -165,6 +170,30 @@ class PlaceSnapshot:
         return (
             value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
         )
+
+    def arrival_bound(self, key):
+        window = self.briefing.get("time_window")
+        if (
+            not isinstance(window, dict)
+            or window.get("reliability") not in ("stable", "variable")
+            or self.briefing.get("situation_phase") != "approach"
+        ):
+            return None
+        value = window.get(key)
+        return (
+            value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
+        )
+
+    @property
+    def lightning_distance(self):
+        if isinstance(self.briefing.get("data_quality"), dict):
+            return self.metric("nearest_lightning_distance_20m_km")
+        return self.metric("nearest_lightning_distance_km")
+
+    def reading(self, variable):
+        from .measurements import valid_reading
+
+        return valid_reading(self.briefing.get("observation_context"), variable)
 
     def signal(self, key):
         if key == "storm_approach":
@@ -180,6 +209,19 @@ class PlaceSnapshot:
         }.get(key)
         if field:
             count = self.metric(field)
+            quality = self.briefing.get("data_quality")
+            domain = {
+                "lightning_detected": "lightning",
+                "official_warning": "official_warnings",
+                "earthquake_activity": "earthquakes",
+                "hail_reported": "hail_reports",
+            }[key]
+            if isinstance(quality, dict):
+                status = quality.get(domain, {})
+                if status.get("state") == "stale" or (
+                    count == 0 and status.get("coverage", "unknown") == "unknown"
+                ):
+                    return None
             return count > 0 if count is not None else None
         if key == "wildfire_detected":
             signals = self.briefing.get("environmental_signals")
@@ -210,6 +252,7 @@ class PlaceCatalog:
     account_id: str
     places: dict[str, str]
     restricted: bool
+    capabilities: tuple[str, ...] = ()
 
 
 def parse_snapshot(body: Any) -> AccountSnapshot:
@@ -272,6 +315,9 @@ class SScapeClient:
         self._api_key = api_key
         self._session = session
         self._language = "it" if language.startswith("it") else "en"
+        self._capabilities: set[str] = set()
+        self._page_cache = {}
+        self._cached_selection = None
 
     async def async_get_catalog(self) -> PlaceCatalog:
         body = await self._async_get("/api/v1/integrations/places", params={"view": "selection"})
@@ -304,11 +350,21 @@ class SScapeClient:
             ):
                 raise ProtocolError("Invalid place catalogue")
             choices[place_id] = name[:255]
-        return PlaceCatalog(owner, choices, body.get("places_restricted") is True)
+        capabilities = body.get("capabilities", [])
+        self._capabilities = (
+            {v for v in capabilities if isinstance(v, str)}
+            if isinstance(capabilities, list)
+            else set()
+        )
+        return PlaceCatalog(
+            owner, choices, body.get("places_restricted") is True, tuple(sorted(self._capabilities))
+        )
 
     async def async_get_snapshot(self, place_ids: list[str] | None = None) -> AccountSnapshot:
         if place_ids == []:
             return AccountSnapshot(None, {})
+        if "automation.snapshot.v1" in self._capabilities:
+            return await self._async_get_compact_snapshot(place_ids)
         params = {"place_ids": ",".join(place_ids)} if place_ids is not None else None
         result = parse_snapshot(
             await self._async_get("/api/v1/integrations/places/states", params=params)
@@ -316,6 +372,91 @@ class SScapeClient:
         if place_ids is not None and not set(result.places).issubset(place_ids):
             raise ProtocolError("Server returned an unselected place")
         return result
+
+    async def _async_get_compact_snapshot(self, place_ids):
+        selection = tuple(place_ids) if place_ids is not None else None
+        if self._cached_selection != selection:
+            self._page_cache.clear()
+            self._cached_selection = selection
+        params = {"limit": "25"}
+        if place_ids is not None:
+            params["place_ids"] = ",".join(place_ids)
+        owner, places, cursors = None, {}, set()
+        visited = set()
+        for _ in range(40):
+            cache_key = tuple(sorted(params.items()))
+            visited.add(cache_key)
+            previous = self._page_cache.get(cache_key)
+            query = dict(params)
+            if previous and isinstance(previous.get("revision"), str):
+                query["revision"] = previous["revision"]
+            body = await self._async_get("/api/v1/integrations/places/snapshot", params=query)
+            if (
+                not isinstance(body, dict)
+                or body.get("contract_version") != "automation.snapshot.v1"
+            ):
+                raise ProtocolError("Invalid automation snapshot")
+            if body.get("not_modified") is True:
+                if (
+                    not previous
+                    or body.get("revision") != previous.get("revision")
+                    or body.get("account_id") != previous.get("account_id")
+                ):
+                    raise ProtocolError("Invalid snapshot cache reference")
+                clocks = body.get("assessment_times")
+                if not isinstance(clocks, dict):
+                    raise ProtocolError("Invalid assessment clocks")
+                metadata = {key: body.get(key) for key in ("has_more", "next_cursor", "checked_at")}
+                body = deepcopy(previous)
+                body.update(metadata)
+                for row in body["states"]:
+                    briefing = row.get("current_briefing")
+                    if not isinstance(briefing, dict):
+                        continue
+                    clock = clocks.get(row["place"]["id"])
+                    if (
+                        not isinstance(clock, dict)
+                        or not _time(clock.get("updated_at"))
+                        or not _time(clock.get("expires_at"))
+                    ):
+                        raise ProtocolError("Missing assessment clocks")
+                    # Refresh only the assessment validity, not the actual
+                    # observation times, quality flags or forecast valid times.
+                    briefing.update(updated_at=clock["updated_at"], expires_at=clock["expires_at"])
+            page = parse_snapshot(body)
+            if owner and page.account_id != owner:
+                raise ProtocolError("Snapshot owner changed")
+            owner = page.account_id or owner
+            if places.keys() & page.places.keys():
+                raise ProtocolError("Duplicate snapshot page")
+            if place_ids is not None and not set(page.places).issubset(place_ids):
+                raise ProtocolError("Server returned an unselected place")
+            places.update(page.places)
+            self._page_cache[cache_key] = deepcopy(body)
+            if body.get("has_more") is False:
+                self._page_cache = {
+                    key: value for key, value in self._page_cache.items() if key in visited
+                }
+                return AccountSnapshot(owner, places)
+            cursor = body.get("next_cursor")
+            if (
+                body.get("has_more") is not True
+                or not isinstance(cursor, str)
+                or not cursor
+                or len(cursor) > 256
+                or cursor in cursors
+            ):
+                raise ProtocolError("Invalid snapshot cursor")
+            cursors.add(cursor)
+            params["cursor"] = cursor
+        raise ProtocolError("Snapshot page limit exceeded")
+
+    async def async_updates(self, place_ids):
+        """Bounded SSE invalidations, never credentials in a query string."""
+        from .stream import updates
+
+        async for event in updates(self, place_ids):
+            yield event
 
     async def async_get_weather(self, place_id: str) -> dict[str, Any]:
         body = await self._async_get(

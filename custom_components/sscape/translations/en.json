@@ -54,7 +54,8 @@
           "places": "Followed places",
           "update_interval": "Update interval (seconds, 60–900)",
           "follow_all_places": "Follow all authorized places, including future additions",
-          "weather_enabled": "Weather and hourly forecasts"
+          "weather_enabled": "Weather and hourly forecasts",
+          "push_updates": "Push updates when supported by the server"
         }
       }
     },
@@ -94,6 +95,59 @@
       },
       "earthquake_count": {
         "name": "Earthquakes in search radius (24 h)"
+      },
+      "data_quality": {
+        "name": "Data quality and availability",
+        "state": {
+          "unknown": "Coverage unverified",
+          "partial": "Partial coverage",
+          "stale": "Delayed observations"
+        }
+      },
+      "phase": {
+        "name": "Storm phase",
+        "state": {
+          "quiet": "No storm reported",
+          "watch": "Monitoring",
+          "approach": "Approaching",
+          "impact": "Possible impact"
+        }
+      },
+      "eta_min": {
+        "name": "Arrival window start"
+      },
+      "eta_max": {
+        "name": "Arrival window end"
+      },
+      "storm_distance": {
+        "name": "Storm distance"
+      },
+      "radar_updated": {
+        "name": "Radar observation time"
+      },
+      "official_count": {
+        "name": "Local warnings in catalogue"
+      },
+      "observed_temperature": {
+        "name": "Station temperature"
+      },
+      "observed_wind": {
+        "name": "Station wind speed"
+      },
+      "observed_gust": {
+        "name": "Station wind gust"
+      },
+      "observed_humidity": {
+        "name": "Station humidity"
+      },
+      "forecast_minimum": {
+        "name": "Forecast minimum temperature next 24h"
+      },
+      "forecast_rain": {
+        "name": "Forecast precipitation next 24h"
+      },
+      "forecast_gust": {
+        "name": "Forecast peak gust next 24h"
       }
     },
     "binary_sensor": {
@@ -122,6 +176,37 @@
     "weather": {
       "forecast": {
         "name": "Estimated weather and forecast"
+      }
+    },
+    "event": {
+      "conditions_changed": {
+        "name": "Situation changes"
+      }
+    }
+  },
+  "issues": {
+    "data_delayed": {
+      "title": "Some sScape observations are delayed",
+      "description": "Some observations have been stale for at least five minutes. A newly generated assessment does not make its weather data new. Check Data quality and availability; do not treat missing data as an all-clear."
+    }
+  },
+  "services": {
+    "get_briefing": {
+      "name": "Read current briefing",
+      "description": "Return the current assessment for the selected place. Does not operate devices. Administrator access required.",
+      "fields": {
+        "device_id": {
+          "name": "sScape place"
+        }
+      }
+    },
+    "get_dashboard": {
+      "name": "Generate place dashboard",
+      "description": "Return ready-to-import YAML with actual entity IDs and native cards only. Does not create or overwrite dashboards. Administrator access required.",
+      "fields": {
+        "device_id": {
+          "name": "sScape place"
+        }
       }
     }
   }

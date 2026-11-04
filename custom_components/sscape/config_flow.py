@@ -198,6 +198,11 @@ class SScapeOptionsFlow(config_entries.OptionsFlow):
                         CONF_INTERVAL: int(user_input[CONF_INTERVAL]),
                         CONF_FOLLOW_ALL: user_input.get(CONF_FOLLOW_ALL, False),
                         CONF_WEATHER: user_input.get(CONF_WEATHER, True),
+                        **(
+                            {"push_updates": user_input["push_updates"]}
+                            if "push_updates" in user_input
+                            else {}
+                        ),
                     },
                 )
         return self.async_show_form(
@@ -219,6 +224,9 @@ class SScapeOptionsFlow(config_entries.OptionsFlow):
                         CONF_FOLLOW_ALL, default=entry.options.get(CONF_FOLLOW_ALL, False)
                     ): bool,
                     vol.Optional(CONF_WEATHER, default=entry.options.get(CONF_WEATHER, True)): bool,
+                    vol.Optional(
+                        "push_updates", default=entry.options.get("push_updates", True)
+                    ): bool,
                 }
             ),
             errors=errors,

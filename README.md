@@ -4,6 +4,40 @@ Un dispositivo per ogni luogo seguito, configurato dall’interfaccia di Home
 Assistant. Nessun YAML obbligatorio, nessuna porta da aprire, nessuna password
 dell’account da consegnare all’integrazione.
 
+## Novità della 0.3
+
+- Aggiornamenti push **in uscita** per i luoghi autorizzati; polling di recupero
+  sempre attivo. Non devi aprire porte né configurare MQTT in Home Assistant.
+- Fase del temporale, intervallo di arrivo e qualità dei dati. Un’analisi nuova
+  non rende nuovi radar e osservazioni. Copertura sconosciuta non significa
+  assenza di pericolo; zero significa zero record nella finestra indicata.
+- Sensori opzionali per misure di stazione (con distanza e timestamp) e numeri
+  di previsione per le prossime 24 ore. Le raffiche misurate sono convertite
+  da m/s a km/h, senza modificare il valore originale conservato negli attributi.
+- Eventi nativi di cambiamento e blueprint per eventi e soglie scelte da te.
+
+Le funzioni avanzate vengono usate soltanto se dichiarate dal server. Un backend
+con il solo contratto 0.2 continua a funzionare in polling, senza inventare dati.
+Il push riduce l’attesa dopo un aggiornamento del backend, **non** la latenza
+del provider meteorologico. Le risposte incrementali aggiornano la validità
+dell’analisi senza cambiare timestamp o qualità delle osservazioni.
+
+### Dashboard pronta con le tue entità
+
+1. Apri **Strumenti per sviluppatori → Azioni** e scegli `sscape.get_dashboard`.
+2. Seleziona il dispositivo del luogo e premi Esegui.
+3. Copia il contenuto del campo `yaml` in una nuova dashboard manuale.
+
+Si usano soltanto card native, inclusa la previsione oraria; nessuna custom card
+aggiuntiva. Il contenuto viene generato con gli identificativi effettivi delle
+entità abilitate. L’azione **non crea né sovrascrive dashboard**. Non incollare
+il risultato sopra una dashboard esistente senza averne conservato il contenuto.
+
+`sscape.get_briefing` restituisce invece rischio, spiegazione, azione consigliata,
+validità e qualità dei dati: puoi usarli in un’automazione o annuncio scelto da te.
+Entrambe sono azioni di sola lettura riservate agli amministratori Home Assistant;
+non richiedono di inserire una chiave API nelle automazioni.
+
 ## Installazione con HACS
 
 Repository pubblico dedicato:
@@ -128,6 +162,16 @@ notifica né attivato un dispositivo finché non configuri l’automazione.
 Il blueprint reagisce agli aumenti di livello, non agli aggiornamenti degli
 attributi; l’azione facoltativa di rientro richiede rischio basso stabile per
 alcuni minuti. `unavailable → low` non è trattato come cessato allarme.
+Su un server aggiornato, dati scaduti o copertura sconosciuta bloccano anche
+l’azione facoltativa di rientro.
+
+Nella stessa directory trovi `situation_change.yaml` e
+`measurement_threshold.yaml`: importa il rispettivo URL GitHub come sopra.
+Il primo reagisce agli eventi scelti senza duplicare ripristini o aggiornamenti
+degli attributi. Il secondo usa una soglia e un tempo di conferma scelti da te,
+per esempio su una raffica di stazione o sulla minima **prevista**. Non classifica
+automaticamente gelo al suolo, danni o sicurezza di una tenda. Nessun dispositivo
+viene comandato automaticamente dall’integrazione.
 
 ## Credenziali e diagnostica
 

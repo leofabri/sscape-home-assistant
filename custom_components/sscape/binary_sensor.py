@@ -75,7 +75,7 @@ class SScapeSignal(SScapeEntity, BinarySensorEntity):
             attrs["eta_minutes"] = self.place.eta_minutes
         if self.key == "lightning_detected":
             attrs["count_20m"] = self.place.metric("lightning_count_20m")
-            attrs["nearest_distance_km"] = self.place.metric("nearest_lightning_distance_km")
+            attrs["nearest_distance_km"] = self.place.lightning_distance
         if self.key == "earthquake_activity":
             attrs["search_radius_km"] = self.place.metric("earthquake_search_radius_km")
             attrs["max_magnitude_24h"] = self.place.metric("max_earthquake_magnitude_24h")

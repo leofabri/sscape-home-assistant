@@ -247,6 +247,7 @@ async def test_options_selection_interval_and_reload(hass, entry, client):
         "update_interval": 180,
         "follow_all_places": False,
         "weather_enabled": False,
+        "push_updates": True,
     }
     reload.assert_awaited_once_with(entry.entry_id)
 

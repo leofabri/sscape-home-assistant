@@ -51,11 +51,23 @@ async def async_setup_entry(hass, entry, async_add_entities):
         return
 
     def create(parent, place):
-        coordinator = SScapeWeatherCoordinator(hass, parent, place.place_id)
-        parent.weather_coordinators[place.place_id] = coordinator
+        coordinator = get_weather_coordinator(hass, parent, place.place_id)
         return [SScapeWeather(parent, coordinator, place)]
 
     async_watch_places(hass, entry, async_add_entities, create)
+
+
+def get_weather_coordinator(hass, parent, place_id):
+    if place_id not in parent.weather_coordinators:
+        parent.weather_coordinators[place_id] = SScapeWeatherCoordinator(hass, parent, place_id)
+    return parent.weather_coordinators[place_id]
+
+
+def start_weather_refresh(hass, coordinator, on_remove):
+    if not getattr(coordinator, "initial_refresh_started", False):
+        coordinator.initial_refresh_started = True
+        task = hass.async_create_task(coordinator.async_refresh())
+        on_remove(task.cancel)
 
 
 class SScapeWeather(SingleCoordinatorWeatherEntity[SScapeWeatherCoordinator]):
@@ -76,8 +88,7 @@ class SScapeWeather(SingleCoordinatorWeatherEntity[SScapeWeatherCoordinator]):
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
         self.async_on_remove(self.parent.async_add_listener(self._handle_coordinator_update))
-        task = self.hass.async_create_task(self.coordinator.async_refresh())
-        self.async_on_remove(task.cancel)
+        start_weather_refresh(self.hass, self.coordinator, self.async_on_remove)
 
     @property
     def available(self):

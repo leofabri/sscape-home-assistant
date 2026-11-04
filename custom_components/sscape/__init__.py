@@ -4,14 +4,16 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY, CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .actions import setup_actions
 from .api import SScapeClient
 from .const import CONF_FOLLOW_ALL, CONF_PLACES, CONF_WEATHER, DOMAIN
 from .coordinator import SScapeCoordinator
 
 type SScapeConfigEntry = ConfigEntry[SScapeCoordinator]
-PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WEATHER]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WEATHER, Platform.EVENT]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> bool:
@@ -30,7 +32,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> bo
     entry.runtime_data = coordinator
     _update_place_registry(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    setup_actions(hass)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    coordinator.start_stream()
     return True
 
 
@@ -38,9 +42,20 @@ async def _async_options_updated(hass: HomeAssistant, entry: SScapeConfigEntry) 
     await hass.config_entries.async_reload(entry.entry_id)
 
 
+async def async_remove_entry(hass, entry):
+    ir.async_delete_issue(hass, DOMAIN, entry.entry_id + "_data_delayed")
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> bool:
     """Remove listeners and periodic polling through the HA platform lifecycle."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded and not any(
+        other.entry_id != entry.entry_id and other.state.value == "loaded"
+        for other in hass.config_entries.async_entries(DOMAIN)
+    ):
+        for name in ("get_briefing", "get_dashboard"):
+            hass.services.async_remove(DOMAIN, name)
+    return unloaded
 
 
 def _update_place_registry(hass, entry):
@@ -54,8 +69,11 @@ def _update_place_registry(hass, entry):
         if entity.platform != DOMAIN or not entity.unique_id.startswith(prefix):
             continue
         place_id = entity.unique_id[len(prefix) :].split("|", 1)[0]
+        weather_entity = entity.domain == "weather" or entity.unique_id[len(prefix) :].split(
+            "|", 1
+        )[-1].startswith("forecast_")
         enabled = place_id in allowed and (
-            entity.domain != "weather" or entry.options.get(CONF_WEATHER, True)
+            not weather_entity or entry.options.get(CONF_WEATHER, True)
         )
         if not enabled and entity.disabled_by is None:
             options = dict(entity.options.get(DOMAIN, {}))

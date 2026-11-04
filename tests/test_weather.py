@@ -145,3 +145,46 @@ async def test_native_weather_entity_and_forecast_action(hass, payload, forecast
             "sensor", "sscape", f"{entry.unique_id}|place-1|risk"
         )
         assert hass.states.get(risk_id).state == "moderate"
+
+
+async def test_optional_numeric_outlook_uses_the_same_forecast_request(
+    hass, payload, forecast_payload
+):
+    forecast_payload.update(minimum_temperature_c=0, precipitation_mm=None, peak_gust_kmh=50)
+    entry = MockConfigEntry(
+        domain="sscape",
+        version=2,
+        title="sScape",
+        unique_id="https://example.com|account-1",
+        data={"host": "https://example.com", "api_key": "fictional-key", "account_id": "account-1"},
+        options={"places": ["place-1"], "weather_enabled": True},
+    )
+    entry.add_to_hass(hass)
+    with (
+        patch(
+            "custom_components.sscape.api.SScapeClient.async_get_catalog",
+            AsyncMock(return_value=PlaceCatalog("account-1", {"place-1": "Home"}, True)),
+        ),
+        patch(
+            "custom_components.sscape.api.SScapeClient.async_get_snapshot",
+            AsyncMock(return_value=parse_snapshot(payload)),
+        ),
+        patch(
+            "custom_components.sscape.api.SScapeClient.async_get_weather",
+            AsyncMock(return_value=forecast_payload),
+        ) as weather,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        registry = er.async_get(hass)
+        target = registry.async_get_entity_id(
+            "sensor", "sscape", f"{entry.unique_id}|place-1|forecast_minimum_temperature_c"
+        )
+        registry.async_update_entity(target, disabled_by=None)
+        await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        assert weather.await_count == 2  # one per setup, not one per entity
+        value = hass.states.get(target)
+        assert float(value.state) == 0
+        assert value.attributes["data_kind"] == "model_forecast"
+        assert value.attributes["sources"] == ["noaa-nws"]

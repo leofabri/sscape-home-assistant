@@ -1,0 +1,73 @@
+blueprint:
+  name: sScape · Soglia di una misura o previsione
+  description: >-
+    Avvisa quando un sensore supera la soglia scelta per il tempo indicato.
+    Utile per raffiche o minime previste. Una previsione non è una misura:
+    controlla nome, distanza della stazione e fonte del sensore scelto.
+    Non sostituisce dispositivi di protezione o avvisi ufficiali.
+  domain: automation
+  homeassistant:
+    min_version: 2026.2.3
+  input:
+    numeric_sensor:
+      name: Sensore numerico sScape
+      selector:
+        entity:
+          filter:
+            - integration: sscape
+              domain: sensor
+    threshold:
+      name: Soglia nelle unità del sensore
+      selector:
+        number:
+          min: -100
+          max: 1000
+          step: 0.1
+          mode: box
+    direction:
+      name: Direzione del superamento
+      default: above
+      selector:
+        select:
+          options: [above, below]
+    confirmation_minutes:
+      name: Minuti di conferma
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 60
+          mode: box
+    actions:
+      name: Azioni scelte da te
+      selector:
+        action: {}
+mode: single
+max_exceeded: silent
+variables:
+  threshold_direction: !input direction
+triggers:
+  - trigger: numeric_state
+    entity_id: !input numeric_sensor
+    above: !input threshold
+    for:
+      minutes: !input confirmation_minutes
+    id: above
+  - trigger: numeric_state
+    entity_id: !input numeric_sensor
+    below: !input threshold
+    for:
+      minutes: !input confirmation_minutes
+    id: below
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.id == threshold_direction and trigger.from_state is not none
+         and trigger.to_state is not none and is_number(trigger.from_state.state)
+         and is_number(trigger.to_state.state) }}
+actions:
+  - variables:
+      sscape_value: "{{ trigger.to_state.state }}"
+      sscape_data_kind: "{{ trigger.to_state.attributes.get('data_kind','unknown') }}"
+      sscape_source_time: "{{ trigger.to_state.attributes.get('observation_time',trigger.to_state.attributes.get('fetched_at')) }}"
+  - sequence: !input actions

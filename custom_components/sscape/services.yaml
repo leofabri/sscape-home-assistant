@@ -1,0 +1,20 @@
+get_briefing:
+  name: Read current briefing
+  description: Return the selected place's current assessment for an automation or announcement. Does not operate any device. Administrator access required.
+  fields:
+    device_id:
+      name: sScape place
+      required: true
+      selector:
+        device:
+          integration: sscape
+get_dashboard:
+  name: Generate place dashboard
+  description: Return ready-to-import dashboard YAML using the actual entity IDs and native Home Assistant cards. Does not create or overwrite dashboards. Administrator access required.
+  fields:
+    device_id:
+      name: sScape place
+      required: true
+      selector:
+        device:
+          integration: sscape
