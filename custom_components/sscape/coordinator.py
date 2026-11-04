@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import random
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
@@ -49,6 +50,7 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
         self.stream_reconnects = 0
         self._stream_task = None
         self._stale_since = None
+        self.stopping = False
         super().__init__(
             hass,
             _LOGGER,
@@ -72,6 +74,8 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
             if data.account_id and data.account_id != self.config_entry.data[CONF_ACCOUNT_ID]:
                 raise AuthenticationError("API key belongs to another account")
         except (AuthenticationError, PermissionDenied):
+            if self.stopping:
+                raise asyncio.CancelledError from None
             raise ConfigEntryAuthFailed(
                 "Check the API key, places:read scope and API access plan"
             ) from None
@@ -83,6 +87,8 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
                 seconds=min(MAX_INTERVAL, self._base_interval * 2 ** min(self._failures, 4))
             )
             raise UpdateFailed("sScape is temporarily unavailable") from None
+        if self.stopping:
+            raise asyncio.CancelledError
         self._failures = 0
         self.update_interval = timedelta(seconds=self._base_interval)
         self._update_repairs(data)
@@ -112,6 +118,8 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
             )
 
     def start_stream(self):
+        if self.stopping:
+            return
         if self._stream_task is not None and not self._stream_task.done():
             return
         if (
@@ -123,10 +131,20 @@ class SScapeCoordinator(DataUpdateCoordinator[AccountSnapshot]):
             )
         ):
             return
-        self._stream_task = self.hass.async_create_background_task(
-            self._stream_loop(), "sscape place updates"
+        self._stream_task = self.config_entry.async_create_background_task(
+            self.hass, self._stream_loop(), "sscape place updates"
         )
-        self.config_entry.async_on_unload(self._stream_task.cancel)
+
+    async def async_shutdown(self):
+        """Stop once, await the stream, and forbid refresh-triggered restarts."""
+        self.stopping = True
+        await super().async_shutdown()
+        if self._stream_task is not None and self._stream_task is not asyncio.current_task():
+            self._stream_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._stream_task
+        for coordinator in self.weather_coordinators.values():
+            await coordinator.async_shutdown()
 
     async def _stream_loop(self):
         failures = 0

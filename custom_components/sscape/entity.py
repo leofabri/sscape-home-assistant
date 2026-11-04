@@ -62,6 +62,12 @@ def async_watch_places(hass, entry, async_add_entities, factory: Callable) -> No
 
     @callback
     def add_new_places() -> None:
+        if (
+            coordinator.stopping
+            or hass.config_entries.async_get_entry(entry.entry_id) is not entry
+            or getattr(entry, "runtime_data", None) is not coordinator
+        ):
+            return
         selected = entry.options.get(CONF_PLACES, [])
         follow_all = entry.options.get(CONF_FOLLOW_ALL, False)
         new = []

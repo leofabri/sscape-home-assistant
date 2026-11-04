@@ -1,5 +1,6 @@
 """Native HA hourly forecasts through sScape's existing rights-aware broker."""
 
+import asyncio
 import logging
 from datetime import timedelta
 
@@ -32,15 +33,21 @@ class SScapeWeatherCoordinator(DataUpdateCoordinator[WeatherSnapshot]):
     async def _async_update_data(self):
         try:
             async with self.parent.weather_slots:
+                if self.parent.stopping:
+                    raise asyncio.CancelledError
                 data = WeatherSnapshot.parse(
                     await self.parent.client.async_get_weather(self.place_id)
                 )
         except (AuthenticationError, PermissionDenied):
+            if self.parent.stopping:
+                raise asyncio.CancelledError from None
             raise ConfigEntryAuthFailed("Check the API key and place permissions") from None
         except RateLimited as err:
             raise UpdateFailed("API rate limit reached", retry_after=err.retry_after) from None
         except CannotConnect:
             raise UpdateFailed("sScape forecast is temporarily unavailable") from None
+        if self.parent.stopping:
+            raise asyncio.CancelledError
         if not data.is_fresh():
             raise UpdateFailed("No fresh licensed model forecast is available")
         return data

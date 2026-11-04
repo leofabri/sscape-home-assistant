@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.2
+
+- Fixed `FAILED_UNLOAD` on Home Assistant 2026.10.4 with push enabled: the old stream-cancellation callback returned a boolean where HA expected no result or a coroutine.
+- Push now belongs to the config-entry lifecycle and is stopped and awaited before unloading entity platforms. Old coordinators cannot restart it.
+- Fixed double reload after reauthentication, including unchanged-key recovery and authentication failures during initial setup.
+- Ignore late discovery and successful/authentication responses from a stopping or removed entry, including weather requests. No orphan devices or reauthentication flows are created.
+- Added real config-entry and loopback HTTP/SSE regression tests. Entity/device IDs and history are preserved.
+- If the old version is already in `FAILED_UNLOAD`, update through HACS and restart Home Assistant fully once. Do not delete/recreate the integration or edit its registries.
+
 ## 0.3.1
 
 - The read-only briefing action now reports unavailable after a connection/authentication failure, even when a previously fetched assessment remains in memory. No stale actionable text is returned.

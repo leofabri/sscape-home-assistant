@@ -103,10 +103,18 @@ class SScapeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if error:
                 errors["base"] = error
             else:
-                return self.async_update_reload_and_abort(
+                # A loaded entry's update listener already schedules its reload.
+                # Asking the helper to reload too creates two overlapping reloads.
+                needs_reload = (
+                    not entry.update_listeners or entry.data[CONF_API_KEY] == data[CONF_API_KEY]
+                )
+                result = self.async_update_and_abort(
                     entry,
                     data_updates={CONF_API_KEY: data[CONF_API_KEY]},
                 )
+                if needs_reload:
+                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return result
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=vol.Schema(

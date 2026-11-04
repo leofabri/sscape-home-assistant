@@ -39,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> bo
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: SScapeConfigEntry) -> None:
-    await hass.config_entries.async_reload(entry.entry_id)
+    hass.config_entries.async_schedule_reload(entry.entry_id)
 
 
 async def async_remove_entry(hass, entry):
@@ -48,6 +48,9 @@ async def async_remove_entry(hass, entry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> bool:
     """Remove listeners and periodic polling through the HA platform lifecycle."""
+    # Stop push and polling before removing the platforms. Entry unload callbacks
+    # run afterwards, which is too late to prevent discovery during teardown.
+    await entry.runtime_data.async_shutdown()
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded and not any(
         other.entry_id != entry.entry_id and other.state.value == "loaded"

@@ -4,7 +4,7 @@
 async def async_get_config_entry_diagnostics(hass, entry):
     coordinator = entry.runtime_data
     return {
-        "integration_version": "0.3.1",
+        "integration_version": "0.3.2",
         "stream_connected": coordinator.stream_connected,
         "stream_reconnects": coordinator.stream_reconnects,
         "last_push_at": coordinator.last_push_at.isoformat() if coordinator.last_push_at else None,

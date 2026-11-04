@@ -40,6 +40,14 @@ non richiedono di inserire una chiave API nelle automazioni.
 
 ## Installazione con HACS
 
+**Correzione 0.3.2:** se compare `FAILED_UNLOAD` o «Can't link device to
+unknown config entry», aggiorna sScape in HACS e **riavvia completamente Home
+Assistant**. Il semplice ricaricamento non recupera una configurazione già in
+questo stato. Non eliminare l’integrazione, i dispositivi o i registri: la patch
+conserva identificativi e cronologia. Se dopo il riavvio viene richiesta la
+riautenticazione, inserisci una chiave valida dello stesso account, con permesso
+`places:read` e accesso API attivo; la patch non aggira i controlli di accesso.
+
 Repository pubblico dedicato:
 **[leofabri/sscape-home-assistant](https://github.com/leofabri/sscape-home-assistant)**.
 È disponibile come **repository personalizzato**, non è ancora incluso nel
