@@ -4,14 +4,15 @@
     "step": {
       "user": {
         "title": "Collega sScape",
-        "description": "Collega una chiave API sScape. Per i luoghi salvati serve places:read; per punti senza salvataggio scegli le coordinate e usa integrations:read con una chiave non limitata ai luoghi. È necessario un piano con accesso API.",
+        "description": "Collega il tuo account con una chiave di accesso. Puoi usare un luogo salvato, la posizione HA o un altro punto. [Crea la chiave nel tuo profilo sScape]({profile_url}).",
         "data": {
           "host": "Server sScape",
           "api_key": "Chiave API",
-          "use_coordinates": "Usa latitudine e longitudine, senza salvare un luogo"
+          "location_mode": "Quale posizione vuoi usare?"
         },
         "data_description": {
-          "host": "Indirizzo completo, ad esempio https://sscape.leofabri.com. Non aggiungere /api/v1."
+          "host": "Indirizzo completo, ad esempio https://sscape.leofabri.com. Non aggiungere /api/v1.",
+          "api_key": "Luoghi salvati: places:read. Coordinate: integrations:read e chiave non limitata ai luoghi. Modalità mista: entrambi. Il piano deve consentire l’accesso API."
         }
       },
       "reauth_confirm": {
@@ -39,6 +40,82 @@
           "radius_km": "Raggio monitorato (km)",
           "enabled": "Monitora questo punto"
         }
+      },
+      "preferences": {
+        "title": "Scegli solo ciò che ti serve",
+        "description": "Parti dal riepilogo essenziale. Le opzioni già configurate restano invariate se non scegli di modificarle.",
+        "data": {
+          "weather_enabled": "Meteo e previsioni orarie",
+          "dashboard_profile": "Dashboard predefinita",
+          "configure_local": "Associa o modifica i miei sensori esterni",
+          "configure_notifications": "Configura o modifica le notifiche",
+          "configure_assist": "Configura o modifica Assist"
+        }
+      },
+      "review": {
+        "title": "Pronto per collegare sScape",
+        "description": "Luoghi attivi: **{count}**.\n\n{targets}\n\nSalvando mantieni identificativi e storico. Poi apri **sScape setup** nella barra laterale per vedere l’anteprima e creare una nuova dashboard. Non modifichiamo quelle esistenti.",
+        "submit": "Salva e termina"
+      },
+      "notification_test": {
+        "title": "La notifica arriva davvero?",
+        "description": "L’invio parte solo scegliendo **Invia prova**. Stato della richiesta: {test_state}.\n\nUna richiesta accettata non prova la ricezione. Controlla il telefono e scegli **L’ho ricevuta**, oppure continua senza verificarla. Nessuna allerta reale viene inviata.",
+        "data": {
+          "test_action": "Cosa vuoi fare?"
+        }
+      },
+      "assist_target": {
+        "title": "A quale luogo vuoi dare un soprannome?",
+        "data": {
+          "target": "Luogo"
+        }
+      },
+      "assist_aliases": {
+        "title": "Come vuoi chiamarlo con Assist?",
+        "description": "Luogo: **{target}**. Aggiungi un soprannome alla volta, per esempio Casa o Giardino. Niente sintassi speciale. Evita nomi già usati da altri luoghi.",
+        "data": {
+          "place_aliases": "Soprannomi, fino a 8"
+        }
+      },
+      "notifications": {
+        "title": "Una notifica per episodio",
+        "description": "Scegli la destinazione con il suo nome. Raggruppa solo lo stesso episodio e sorgente. Nel prossimo passaggio puoi inviare una prova. Nessun invio automatico all’avvio.",
+        "data": {
+          "episode_notifications": "Abilita notifiche raggruppate",
+          "episode_kinds": "Episodi da notificare",
+          "notification_target": "Dispositivo o destinazione"
+        }
+      },
+      "assist": {
+        "title": "Chiedilo ad Assist",
+        "description": "Chiedi per esempio «sScape situazione a Casa». Usa il motore HA integrato e rispetta i permessi di lettura. Puoi aggiungere soprannomi nel passaggio successivo, senza scrivere formule.",
+        "data": {
+          "assist_enabled": "Abilita le frasi sScape",
+          "assist_allow_anonymous": "Consenti richieste senza identità utente, ad esempio satelliti vocali condivisi",
+          "expose_selected_entities": "Esponi ora ad Assist rischio e meteo dei luoghi selezionati",
+          "configure_aliases": "Aggiungi o modifica i soprannomi di un luogo"
+        }
+      },
+      "local_sensors": {
+        "title": "Misure della tua stazione",
+        "description": "Scegli il luogo cui associare i sensori. I valori restano in Home Assistant e non modificano l’analisi sScape.",
+        "data": {
+          "target": "Luogo o punto"
+        }
+      },
+      "local_sensor_details": {
+        "title": "Seleziona sensori esterni",
+        "description": "Associa solo strumenti meteorologici del luogo, non sensori interni o previsioni. Le unità sono verificate e convertite. Un valore mancante o scaduto non diventa zero. Il contatore non viene interpretato come intensità di pioggia.",
+        "data": {
+          "temperature": "Temperatura esterna",
+          "humidity": "Umidità esterna",
+          "pressure": "Pressione atmosferica",
+          "wind_speed": "Velocità del vento",
+          "wind_gust": "Raffica",
+          "rain_rate": "Intensità di pioggia",
+          "rain_counter": "Contatore pioggia, periodo definito dal sensore",
+          "confirm_outdoor": "Confermo: sono strumenti meteo esterni relativi a questo luogo"
+        }
       }
     },
     "error": {
@@ -52,25 +129,37 @@
       "invalid_places": "Scegli soltanto luoghi autorizzati da questa chiave.",
       "server_update_required": "Il server sScape deve essere aggiornato per supportare la selezione sicura dei luoghi.",
       "coordinate_access_denied": "Servono integrations:read, un piano API e una chiave non limitata ai luoghi.",
-      "invalid_coordinates": "Verifica nome, latitudine (−90…90), longitudine (−180…180) e raggio (1–1000 km)."
+      "invalid_coordinates": "Verifica nome, latitudine (−90…90), longitudine (−180…180) e raggio (1–1000 km).",
+      "invalid_aliases": "Usa fino a 8 soprannomi brevi, diversi dai nomi degli altri luoghi.",
+      "test_not_sent": "Invia prima una prova o continua senza confermare la ricezione.",
+      "test_rate_limited": "Attendi 30 secondi prima di un’altra prova.",
+      "notification_test_failed": "La richiesta non è riuscita. Controlla la destinazione.",
+      "invalid_notify_service": "Seleziona un servizio notify disponibile.",
+      "outdoor_required": "Conferma che i sensori sono strumenti esterni del luogo.",
+      "invalid_local_sensor": "Il sensore non esiste, usa unità incompatibili o è una previsione sScape."
     },
     "abort": {
       "already_configured": "Questo account sScape è già configurato su questo server.",
       "reauth_successful": "La chiave API è stata aggiornata."
+    },
+    "create_entry": {
+      "setup_ready": "Collegamento configurato. [Apri sScape setup]({setup_url}) per vedere la dashboard prima di crearla. Le dashboard esistenti restano invariate."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Luoghi e aggiornamenti",
-        "description": "Scegli i luoghi da importare. Se la selezione è vuota e «Segui tutti» è disattivato, non viene importato nulla. I luoghi esclusi vengono disattivati senza cancellarne la cronologia.",
-        "data": {
-          "places": "Luoghi seguiti",
-          "update_interval": "Intervallo di aggiornamento (secondi, 60–900)",
-          "follow_all_places": "Segui tutti i luoghi autorizzati, anche futuri",
-          "weather_enabled": "Meteo e previsioni orarie",
-          "push_updates": "Aggiornamenti push, se supportati dal server",
-          "configure_more": "Dopo il salvataggio configura"
+        "title": "Cosa vuoi configurare?",
+        "description": "Modifica una voce direttamente, oppure segui il percorso guidato. Il resto rimane invariato.",
+        "menu_options": {
+          "preferences": "Configurazione guidata",
+          "saved_places": "Luoghi salvati in sScape",
+          "home_point": "Usa la posizione di Home Assistant",
+          "coordinate": "Punti per coordinate",
+          "local_sensors": "I miei strumenti esterni",
+          "notifications": "Notifiche",
+          "assist": "Assist e soprannomi",
+          "advanced": "Impostazioni avanzate"
         }
       },
       "coordinate": {
@@ -114,21 +203,73 @@
       },
       "notifications": {
         "title": "Una notifica per episodio",
-        "description": "Facoltativo. Raggruppa i luoghi solo quando sScape fornisce lo stesso ID di evento e sorgente. Nessun invio al riavvio e nessun cessato allarme dedotto da dati mancanti. Usa un servizio notify, ad esempio la Companion App.",
+        "description": "Scegli la destinazione con il suo nome. Raggruppa solo lo stesso episodio e sorgente. Nel prossimo passaggio puoi inviare una prova. Nessun invio automatico all’avvio.",
         "data": {
           "episode_notifications": "Abilita notifiche raggruppate",
-          "notify_service": "Destinazione delle notifiche",
-          "episode_kinds": "Episodi da notificare"
+          "episode_kinds": "Episodi da notificare",
+          "notification_target": "Dispositivo o destinazione"
         }
       },
       "assist": {
         "title": "Chiedilo ad Assist",
-        "description": "Usa frasi come «sScape situazione a Casa» o «sScape quando piove a Casa». Funziona con l’agente Home Assistant integrato. Servono entità esposte e permesso di lettura. Alias facoltativi: una riga «Nome luogo = casa, giardino». I nomi ambigui non ricevono risposta.",
+        "description": "Chiedi per esempio «sScape situazione a Casa». Usa il motore HA integrato e rispetta i permessi di lettura. Puoi aggiungere soprannomi nel passaggio successivo, senza scrivere formule.",
         "data": {
           "assist_enabled": "Abilita le frasi sScape",
           "assist_allow_anonymous": "Consenti richieste senza identità utente, ad esempio satelliti vocali condivisi",
           "expose_selected_entities": "Esponi ora ad Assist rischio e meteo dei luoghi selezionati",
-          "aliases": "Alias dei luoghi (facoltativi)"
+          "configure_aliases": "Aggiungi o modifica i soprannomi di un luogo"
+        }
+      },
+      "preferences": {
+        "title": "Scegli solo ciò che ti serve",
+        "description": "Parti dal riepilogo essenziale. Le opzioni già configurate restano invariate se non scegli di modificarle.",
+        "data": {
+          "weather_enabled": "Meteo e previsioni orarie",
+          "dashboard_profile": "Dashboard predefinita",
+          "configure_local": "Associa o modifica i miei sensori esterni",
+          "configure_notifications": "Configura o modifica le notifiche",
+          "configure_assist": "Configura o modifica Assist"
+        }
+      },
+      "review": {
+        "title": "Pronto per collegare sScape",
+        "description": "Luoghi attivi: **{count}**.\n\n{targets}\n\nSalvando mantieni identificativi e storico. Poi apri **sScape setup** nella barra laterale per vedere l’anteprima e creare una nuova dashboard. Non modifichiamo quelle esistenti.",
+        "submit": "Salva e termina"
+      },
+      "notification_test": {
+        "title": "La notifica arriva davvero?",
+        "description": "L’invio parte solo scegliendo **Invia prova**. Stato della richiesta: {test_state}.\n\nUna richiesta accettata non prova la ricezione. Controlla il telefono e scegli **L’ho ricevuta**, oppure continua senza verificarla. Nessuna allerta reale viene inviata.",
+        "data": {
+          "test_action": "Cosa vuoi fare?"
+        }
+      },
+      "assist_target": {
+        "title": "A quale luogo vuoi dare un soprannome?",
+        "data": {
+          "target": "Luogo"
+        }
+      },
+      "assist_aliases": {
+        "title": "Come vuoi chiamarlo con Assist?",
+        "description": "Luogo: **{target}**. Aggiungi un soprannome alla volta, per esempio Casa o Giardino. Niente sintassi speciale. Evita nomi già usati da altri luoghi.",
+        "data": {
+          "place_aliases": "Soprannomi, fino a 8"
+        }
+      },
+      "saved_places": {
+        "title": "Quali luoghi vuoi in Home Assistant?",
+        "description": "Scegli soltanto i luoghi da importare. «Segui tutti» include anche i luoghi futuri accessibili con questa chiave; è facoltativo. I luoghi esclusi restano nell’app sScape.",
+        "data": {
+          "places": "Luoghi da importare",
+          "follow_all_places": "Segui tutti i luoghi autorizzati, anche futuri"
+        }
+      },
+      "advanced": {
+        "title": "Aggiornamenti e connessione",
+        "description": "I valori predefiniti vanno bene nella maggior parte dei casi. Il push non cambia la latenza della fonte meteo.",
+        "data": {
+          "update_interval": "Intervallo di recupero, secondi",
+          "push_updates": "Aggiornamenti push quando disponibili"
         }
       }
     },
@@ -138,10 +279,13 @@
       "outdoor_required": "Conferma che i sensori sono strumenti esterni del luogo.",
       "invalid_local_sensor": "Il sensore non esiste, usa unità incompatibili o è una previsione sScape.",
       "invalid_notify_service": "Seleziona un servizio notify disponibile.",
-      "invalid_aliases": "Usa una riga «Nome luogo = alias, altro alias». Il nome deve corrispondere a un solo luogo selezionato.",
+      "invalid_aliases": "Usa fino a 8 soprannomi brevi, diversi dai nomi degli altri luoghi.",
       "coordinate_access_denied": "Servono integrations:read, un piano API e una chiave non limitata ai luoghi.",
       "invalid_auth": "La chiave API non è valida, è stata revocata oppure è scaduta.",
-      "cannot_connect": "Impossibile leggere le API sScape. Verifica l’indirizzo del server e riprova più tardi."
+      "cannot_connect": "Impossibile leggere le API sScape. Verifica l’indirizzo del server e riprova più tardi.",
+      "test_not_sent": "Invia prima una prova o continua senza confermare la ricezione.",
+      "test_rate_limited": "Attendi 30 secondi prima di un’altra prova.",
+      "notification_test_failed": "La richiesta non è riuscita. Controlla la destinazione."
     },
     "abort": {
       "invalid_auth": "Verifica la chiave API e i luoghi autorizzati.",
@@ -292,6 +436,17 @@
       },
       "local_rain_counter": {
         "name": "Locale · Contatore pioggia, periodo definito dal sensore"
+      },
+      "connection_status": {
+        "name": "Disponibilità dei dati",
+        "state": {
+          "ready": "Collegamento attivo",
+          "disconnected": "Collegamento interrotto",
+          "assessment_expired": "Analisi scaduta",
+          "assessment_missing": "Analisi non fornita",
+          "reauthentication_required": "Chiave da aggiornare",
+          "rate_limited": "In attesa dopo limite richieste"
+        }
       }
     },
     "binary_sensor": {
@@ -356,6 +511,12 @@
         },
         "include_optional": {
           "name": "Includi gli indicatori opzionali nell’anteprima"
+        },
+        "profile": {
+          "name": "Livello di dettaglio"
+        },
+        "detail_groups": {
+          "name": "Approfondimenti"
         }
       }
     },
@@ -383,6 +544,24 @@
     "get_setup": {
       "name": "Leggi configurazione della dashboard",
       "description": "Elenca luoghi ed entità selezionati per l’anteprima. Non restituisce chiavi API né modifica dashboard. Solo amministratori."
+    },
+    "test_notification": {
+      "name": "Prova notifiche",
+      "description": "Invia una prova esplicita. Non certifica la ricezione. Solo amministratori.",
+      "fields": {
+        "notification_target": {
+          "name": "Destinazione"
+        }
+      }
+    },
+    "test_assist": {
+      "name": "Prova Assist per un luogo",
+      "description": "Mostra la risposta del motore integrato, rispettando esposizione e permessi. Non verifica hardware vocale. Solo amministratori.",
+      "fields": {
+        "device_id": {
+          "name": "Luogo sScape"
+        }
+      }
     }
   },
   "selector": {
@@ -392,6 +571,26 @@
         "official": "Allerte ufficiali",
         "earthquake": "Terremoti recenti",
         "thermal": "Anomalie termiche satellitari"
+      }
+    },
+    "dashboard_profile": {
+      "options": {
+        "essential": "Essenziale: situazione e prossime ore",
+        "detailed": "Dettagliata: approfondimenti facoltativi"
+      }
+    },
+    "location_mode": {
+      "options": {
+        "saved_places": "Uno o più luoghi salvati in sScape",
+        "home": "La posizione di Home Assistant",
+        "coordinates": "Un altro punto, tramite coordinate"
+      }
+    },
+    "notification_test": {
+      "options": {
+        "send": "Invia prova",
+        "received": "L’ho ricevuta, continua",
+        "skip": "Continua senza verificare la ricezione"
       }
     }
   }

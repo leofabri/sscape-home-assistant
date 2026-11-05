@@ -48,9 +48,106 @@ def _known_tile(entity):
     }
 
 
-def _place_cards(hass, entry, parent, place, *, include_optional=False):
+DETAIL_GROUPS = {
+    "storm": (
+        "phase",
+        "eta_min",
+        "eta_max",
+        "storm_distance",
+        "lightning_count",
+        "lightning_distance",
+    ),
+    "official": ("official_warning_details", "official_warning_expires"),
+    "earthquake": (
+        "latest_earthquake_magnitude",
+        "latest_earthquake_distance",
+        "latest_earthquake_time",
+    ),
+    "thermal": ("nearest_thermal_detection",),
+    "winter": (
+        "forecast_snowfall_cm",
+        "forecast_visibility_minimum_m",
+        "forecast_minimum_temperature_c",
+        "forecast_temperature_minimum_time",
+    ),
+    "observations": ("observed_temperature", "observed_humidity", "observed_wind", "observed_gust"),
+    "local": (
+        "local_temperature",
+        "local_humidity",
+        "local_pressure",
+        "local_wind_speed",
+        "local_wind_gust",
+        "local_rain_rate",
+        "local_rain_counter",
+    ),
+}
+GROUP_TITLES = {
+    "storm": ("Temporali e fulmini", "Storms and lightning"),
+    "official": ("Avvisi ufficiali", "Official warnings"),
+    "earthquake": ("Eventi sismici", "Earthquakes"),
+    "thermal": ("Rilevamenti termici", "Thermal detections"),
+    "winter": ("Neve e visibilità", "Snow and visibility"),
+    "observations": ("Stazioni nelle vicinanze", "Nearby stations"),
+    "local": ("La tua stazione", "Your local instruments"),
+}
+
+
+def _heading(title):
+    return {"type": "heading", "heading": title, "heading_style": "title"}
+
+
+def _summary_card(entity, language, availability_entity=None):
+    unavailable = (
+        "Analisi non disponibile: non è un cessato allarme."
+        if language == 0
+        else "Assessment unavailable; this is not an all-clear."
+    )
+    return {
+        "type": "markdown",
+        "content": (
+            "{% if is_state('"
+            + entity
+            + "', 'unavailable') and states('"
+            + availability_entity
+            + "') not in ['unknown','unavailable','ready'] %}{{ state_attr('"
+            + availability_entity
+            + "', 'status_message') | e }}{% else %}"
+            if availability_entity
+            else ""
+        )
+        + "{% if states('"
+        + entity
+        + "') in ['unknown','unavailable'] %}"
+        + "{{ state_attr('"
+        + entity
+        + "', 'status_message') | default('"
+        + unavailable
+        + "', true) | e }}"
+        + "{% else %}{{ state_attr('"
+        + entity
+        + "', 'headline') | default('', true) | e }}"
+        + "{% if states('"
+        + entity
+        + "') in ['high','severe'] %}\n\n{{ state_attr('"
+        + entity
+        + "', 'recommended_action') | default('', true) | e }}{% endif %}{% endif %}"
+        + ("{% endif %}" if availability_entity else ""),
+    }
+
+
+def _place_cards(
+    hass, entry, parent, place, *, include_optional=False, profile="essential", detail_groups=None
+):
     entities = _entities(hass, entry, place, include_optional=include_optional)
-    cards = []
+    lang = 0 if hass.config.language.startswith("it") else 1
+    cards = [_heading(("Adesso", "Now")[lang])]
+    if risk := entities.get("risk"):
+        cards.append(_summary_card(risk, lang, entities.get("connection_status")))
+        now_tiles = [{"type": "tile", "entity": risk}]
+        if eta := entities.get("eta"):
+            now_tiles.append(_known_tile(eta))
+        cards.append({"type": "grid", "columns": 2, "square": False, "cards": now_tiles})
+    cards.append(_heading(("Prossime ore", "Next hours")[lang]))
     if weather := entities.get("forecast"):
         cards.append(
             {
@@ -61,59 +158,41 @@ def _place_cards(hass, entry, parent, place, *, include_optional=False):
                 "forecast_type": "hourly",
             }
         )
-    tiles = [
-        {"type": "tile", "entity": entities[key]}
+    next_tiles = [
+        _known_tile(entities[key])
         for key in (
-            "risk",
-            "phase",
-            "data_quality",
             "forecast_precipitation_outlook",
-            "observed_temperature",
-            "observed_gust",
+            "forecast_next_rain_window",
+            "forecast_peak_gust_kmh",
+            "forecast_gust_peak_time",
         )
+        if key in entities and (profile == "detailed" or key == "forecast_precipitation_outlook")
+    ]
+    if next_tiles:
+        cards.append({"type": "grid", "columns": 2, "square": False, "cards": next_tiles})
+    cards.append(_heading(("Dati e copertura", "Data and coverage")[lang]))
+    data_tiles = [
+        {"type": "tile", "entity": entities[key]}
+        for key in ("connection_status", "updated", "data_quality")
         if key in entities
     ]
-    if tiles:
-        cards.append({"type": "grid", "columns": 2, "square": False, "cards": tiles})
-    # Optional timings disappear when inapplicable; risk and data-quality tiles
-    # above never disappear during outages.
-    for key in (
-        "eta",
-        "forecast_next_rain_window",
-        "forecast_gust_peak_time",
-        "forecast_temperature_minimum_time",
-    ):
-        if entity := entities.get(key):
-            cards.append(_known_tile(entity))
-    detail_tiles = [
-        _known_tile(entity)
-        for key in (
-            "official_warning_details",
-            "official_warning_expires",
-            "latest_earthquake_magnitude",
-            "latest_earthquake_distance",
-            "latest_earthquake_time",
-            "nearest_thermal_detection",
-            "forecast_snowfall_cm",
-            "forecast_visibility_minimum_m",
-            "local_temperature",
-            "local_humidity",
-            "local_pressure",
-            "local_wind_speed",
-            "local_wind_gust",
-            "local_rain_rate",
-            "local_rain_counter",
-        )
-        if (entity := entities.get(key))
-    ]
-    if detail_tiles:
-        cards.append({"type": "grid", "columns": 2, "square": False, "cards": detail_tiles})
+    if data_tiles:
+        cards.append({"type": "grid", "columns": 2, "square": False, "cards": data_tiles})
+    if profile == "detailed":
+        groups = detail_groups if detail_groups is not None else list(DETAIL_GROUPS)
+        for group in groups:
+            tiles = [_known_tile(entities[key]) for key in DETAIL_GROUPS[group] if key in entities]
+            if tiles:
+                cards.extend(
+                    [
+                        _heading(GROUP_TITLES[group][lang]),
+                        {"type": "grid", "columns": 2, "square": False, "cards": tiles},
+                    ]
+                )
     cards.append(
         {
             "type": "button",
-            "name": "Apri questo luogo sulla mappa"
-            if hass.config.language.startswith("it")
-            else "Open this place on the map",
+            "name": ("Vedi evidenze sulla mappa", "Inspect evidence on the map")[lang],
             "icon": "mdi:map-marker-outline",
             "tap_action": {"action": "url", "url_path": place_map_url(parent, place)},
         }
@@ -121,65 +200,65 @@ def _place_cards(hass, entry, parent, place, *, include_optional=False):
     return cards
 
 
-def build_dashboard(hass, entry, parent, place, *, all_places=False, include_optional=False):
+def build_dashboard(
+    hass,
+    entry,
+    parent,
+    place,
+    *,
+    all_places=False,
+    include_optional=False,
+    profile=None,
+    detail_groups=None,
+):
+    profile = profile or entry.options.get("dashboard_profile", "essential")
+    if profile not in ("essential", "detailed") or (
+        detail_groups is not None
+        and (not isinstance(detail_groups, list) or not set(detail_groups).issubset(DETAIL_GROUPS))
+    ):
+        raise ValueError("Choose a supported dashboard profile and detail groups")
+
+    def cards(item):
+        return _place_cards(
+            hass,
+            entry,
+            parent,
+            item,
+            include_optional=include_optional,
+            profile=profile,
+            detail_groups=detail_groups,
+        )
+
     if not all_places:
         return {
             "title": "sScape",
-            "views": [
-                {
-                    "title": place.name,
-                    "path": "sscape",
-                    "cards": _place_cards(
-                        hass, entry, parent, place, include_optional=include_optional
-                    ),
-                }
-            ],
+            "views": [{"title": place.name, "path": "sscape", "cards": cards(place)}],
         }
-    allowed = {key for key in parent.data.places if allows_target(entry, key)}
     places = sorted(
-        (parent.data.places[key] for key in allowed),
-        key=lambda item: (item.name.casefold(), item.place_id),
+        (p for p in parent.data.places.values() if allows_target(entry, p.place_id)),
+        key=lambda p: (p.name.casefold(), p.place_id),
     )
-    overview, risks, views = [], [], []
+    overview = []
+    views = []
     for index, item in enumerate(places, start=1):
         entities = _entities(hass, entry, item)
         if risk := entities.get("risk"):
-            risks.append({"entity": risk, "name": item.name})
-        if weather := entities.get("forecast"):
             overview.append(
                 {
-                    "type": "weather-forecast",
-                    "entity": weather,
+                    "type": "tile",
+                    "entity": risk,
                     "name": item.name,
-                    "show_forecast": False,
+                    "state_content": ["state", "headline"],
                 }
             )
-        views.append(
-            {
-                "title": item.name,
-                "path": f"sscape-{index}",
-                "cards": _place_cards(hass, entry, parent, item, include_optional=include_optional),
-            }
-        )
-    if risks:
-        overview.insert(
-            0,
-            {
-                "type": "entities",
-                "title": "Rischio nei tuoi luoghi"
-                if hass.config.language.startswith("it")
-                else "Risk at your places",
-                "show_header_toggle": False,
-                "entities": risks,
-            },
-        )
+        views.append({"title": item.name, "path": f"sscape-{index}", "cards": cards(item)})
     return {
         "title": "sScape",
         "views": [
             {
                 "title": "Luoghi" if hass.config.language.startswith("it") else "Places",
                 "path": "sscape",
-                "cards": overview,
+                "cards": [{"type": "grid", "columns": 1, "square": False, "cards": overview}],
             },
             *views,
         ],

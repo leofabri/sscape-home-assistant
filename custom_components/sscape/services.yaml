@@ -30,6 +30,45 @@ get_dashboard:
       default: false
       selector:
         boolean:
+    profile:
+      name: Detail level
+      selector:
+        select:
+          options:
+            - essential
+            - detailed
+    detail_groups:
+      name: Evidence groups
+      selector:
+        select:
+          multiple: true
+          options:
+            - storm
+            - official
+            - earthquake
+            - thermal
+            - winter
+            - observations
+            - local
+test_notification:
+  name: Test notifications
+  description: Sends an explicit test only. An accepted request does not prove delivery. Administrator only.
+  fields:
+    notification_target:
+      name: Destination
+      required: true
+      selector:
+        text:
+test_assist:
+  name: Test Assist for a target
+  description: Tests the built-in agent response, not voice hardware. Exposure and read permissions apply. Administrator only.
+  fields:
+    device_id:
+      name: sScape place
+      required: true
+      selector:
+        device:
+          integration: sscape
 get_setup:
   name: Read dashboard setup
   description: List selected targets and scoped entity IDs for the admin setup panel. No API keys, dashboard writes or network requests. Administrator access required.

@@ -10,8 +10,10 @@ from homeassistant.const import (
     UnitOfTime,
 )
 
+from .availability import SScapeAvailability
 from .const import RISK_LEVELS
 from .entity import SScapeEntity, async_watch_places
+from .status import value_status
 
 PARALLEL_UPDATES = 0
 DESCRIPTIONS = (
@@ -147,9 +149,10 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
         hass,
         entry,
         async_add_entities,
-        lambda coordinator, place: [
-            SScapeSensor(coordinator, place, description) for description in DESCRIPTIONS
-        ],
+        lambda coordinator, place: (
+            [SScapeAvailability(coordinator, place)]
+            + [SScapeSensor(coordinator, place, description) for description in DESCRIPTIONS]
+        ),
     )
     from .outlook import setup_outlook_sensors
 
@@ -187,7 +190,9 @@ class SScapeSensor(SScapeEntity, SensorEntity):
         if key == "radar_updated":
             from .api import _time
 
-            quality = place.briefing.get("data_quality", {}).get("radar", {})
+            data_quality = place.briefing.get("data_quality")
+            quality = data_quality.get("radar", {}) if isinstance(data_quality, dict) else {}
+            quality = quality if isinstance(quality, dict) else {}
             return _time(quality.get("observation_time"))
         return {
             "risk": place.risk_level,
@@ -206,23 +211,37 @@ class SScapeSensor(SScapeEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.native_value is not None
+        return super().available
 
     @property
     def extra_state_attributes(self):
+        status = value_status(
+            self.place,
+            self.entity_description.key,
+            self.native_value,
+            connected=self.coordinator.last_update_success,
+            language=self.hass.config.language if self.hass else "en",
+        )
         # Do not leave an actionable recommendation attached to a stale risk state.
-        if self.entity_description.key == "risk" and self.available and self.place:
-            return self.place.attributes
+        if (
+            self.entity_description.key == "risk"
+            and self.available
+            and self.native_value is not None
+            and self.place
+        ):
+            return status | self.place.attributes
         if self.available and self.place:
             if self.entity_description.key == "data_quality":
-                return {
+                return status | {
                     "feeds": self.place.briefing.get("data_quality"),
                     "scope": "observation freshness and known coverage, not a safety guarantee",
                 }
             if variable := OBSERVATIONS.get(self.entity_description.key):
                 row = self.place.reading(variable)
+                if row is None:
+                    return status
                 observation = row["observation"]
-                return {
+                return status | {
                     "data_kind": "surface_observation",
                     "station": observation.get("station", {}).get("name"),
                     "distance_km": row["distance_km"],
@@ -234,4 +253,4 @@ class SScapeSensor(SScapeEntity, SensorEntity):
                     "quality": observation["quality"]["status"],
                     "source_unit": observation["unit"],
                 }
-        return None
+        return status

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.0
+
+- One initial setup journey for saved places, Home Assistant's home location or manual coordinates, followed by optional local instruments, notifications and Assist; options are saved only on final confirmation. Technical polling/push settings live under Advanced.
+- Friendly notification destinations, including modern notify entities. Explicit test, retry limit and manual receipt confirmation; an accepted service call never claims phone delivery.
+- Per-place Assist alias chips and one-time, opt-in exposure of selected entities. An explicit admin-only test uses the built-in HA agent, not a default external agent or voice hardware.
+- Graphical dashboard preview with Essential/Detailed profiles and topic groups. Native card helpers are used when already loaded; the fallback is clearly labelled simplified. Native previews are inert. Existing dashboards and user-disabled entities are never overwritten.
+- New dashboard story: Now / Next hours / Data and coverage, with optional evidence sections. The all-targets view stays within the chosen account, even with identical place names across accounts.
+- Missing current values now remain `unknown`, rather than pretending the connection is offline; not-applicable, missing, stale and disconnected have distinct explanations. New per-place connection/assessment diagnostic stays readable during outages. No absent metric becomes zero or an all-clear.
+- A still-fresh hourly forecast remains usable during a transient hazard-assessment outage; revoked permissions, expired forecasts and stopping entries still block access. Existing meteorological algorithms, entity IDs and history are preserved.
+
+Update through HACS and fully restart Home Assistant. Generate a new dashboard in **sScape setup** to use the new layout; old dashboards are intentionally left intact.
+
+## 0.5.1
+
+- Geographic requests preserve server `Retry-After` so rate limits are not mistaken for a temporarily empty point. Includes all 0.5.0 features.
+
+## 0.5.0
+
+- Coordinate targets using the existing geographic API, without creating saved places; mixed and coordinate-only modes preserve account and key-scope boundaries.
+- Optional official-warning, earthquake, thermal-detection, snowfall and visibility detail, with original source and forecast semantics.
+- Local HA instrument mirrors with unit conversion and timestamp/quality checks; measurements are not uploaded or used to alter risk.
+- Opt-in episode notifications, no startup replay or proximity-based event merging.
+- Admin-only dashboard setup panel with preview, explicit creation consent and exact-new-dashboard rollback safety.
+- Opt-in native Assist phrases, per-place aliases, exposure checks and separate consent for requests without a user identity.
+
 ## 0.4.0
 
 - New precipitation-outlook sensor: forecast, not forecast, or incomplete data. No false dry result across missing hours.

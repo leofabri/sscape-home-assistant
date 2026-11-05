@@ -348,11 +348,15 @@ async def test_account_dashboard_uses_selected_places_and_conditional_timings(
     assert "fictional-key" not in result["yaml"] and "account-1" not in result["yaml"]
     views = yaml.safe_load(result["yaml"])["views"]
     assert len(views) == 3  # overview plus two selected places
-    assert len(views[0]["cards"][0]["entities"]) == 2
+    assert len(views[0]["cards"][0]["cards"]) == 2
     cards = next(view["cards"] for view in views if view["title"] == "Test place")
     eta = _id(hass, entry, "eta")
     conditional = next(
-        card for card in cards if card["type"] == "conditional" and card["card"]["entity"] == eta
+        card
+        for group in cards
+        if group["type"] == "grid"
+        for card in group["cards"]
+        if card["type"] == "conditional" and card["card"]["entity"] == eta
     )
     assert {rule["state_not"] for rule in conditional["conditions"]} == {"unknown", "unavailable"}
     assert cards[-1]["tap_action"]["url_path"] == "https://example.com/map?place=place-1"

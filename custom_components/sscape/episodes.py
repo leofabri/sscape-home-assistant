@@ -12,6 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .dashboard import place_map_url
 from .hazards import hazards_for
+from .notifications import async_notify, target_options
 from .targets import allows_target
 
 _LOGGER = logging.getLogger(__name__)
@@ -198,12 +199,14 @@ class EpisodeNotifications:
         while self._pending and not self._stopping:
             key = next(iter(self._pending))
             episode = self._pending.pop(key)
-            domain, _, service = self.entry.options.get("notify_service", "").partition(".")
-            if (
-                domain != "notify"
-                or service == "send_message"
-                or not self.hass.services.has_service(domain, service)
-            ):
+            target = (
+                "entity:" + self.entry.options["notify_entity_id"]
+                if self.entry.options.get("notify_entity_id")
+                else "service:" + self.entry.options.get("notify_service", "")
+            )
+            try:
+                target_options(self.hass, target)
+            except HomeAssistantError:
                 self.failure_reason, self._failed_at = (
                     "notification_target_unavailable",
                     monotonic(),
@@ -216,10 +219,7 @@ class EpisodeNotifications:
                     break
                 episode = current
                 try:
-                    async with asyncio.timeout(15):
-                        await self.hass.services.async_call(
-                            domain, service, self._payload(key, episode), blocking=True
-                        )
+                    await async_notify(self.hass, self.entry.options, self._payload(key, episode))
                     self.failure_reason = None
                     break
                 except (HomeAssistantError, TimeoutError):

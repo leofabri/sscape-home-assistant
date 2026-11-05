@@ -8,7 +8,8 @@ from .api import _time
 from .entity import async_watch_places, place_device_info
 from .forecast import number
 from .planning import make_outlook
-from .weather import get_weather_coordinator, start_weather_refresh
+from .status import status_attributes
+from .weather import forecast_available, get_weather_coordinator, start_weather_refresh
 
 DESCRIPTIONS = (
     SensorEntityDescription(
@@ -105,17 +106,8 @@ class SScapeOutlook(CoordinatorEntity, SensorEntity):
 
     @property
     def available(self):
-        return (
-            super().available
-            and self.parent.last_update_success
-            and self.place_id in self.parent.data.places
-            and self.coordinator.data
-            and self.coordinator.data.is_fresh()
-            and (
-                self.entity_description.key
-                in PLANNING_KEYS - {"snowfall_cm", "visibility_minimum_m"}
-                or self.native_value is not None
-            )
+        return super().available and forecast_available(
+            self.parent, self.coordinator, self.place_id
         )
 
     @property
@@ -147,10 +139,28 @@ class SScapeOutlook(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         if not self.available:
-            return None
+            return status_attributes(
+                "unavailable" if not self.coordinator.last_update_success else "stale",
+                language=self.hass.config.language if self.hass else "en",
+            )
+        status = status_attributes(
+            "available" if self.native_value is not None else "missing",
+            reason=None if self.native_value is not None else "forecast_missing",
+            language=self.hass.config.language if self.hass else "en",
+        )
         raw = self.coordinator.data.raw
         if self.entity_description.key in PLANNING_KEYS:
             plan = self._plan()
+            if (
+                self.entity_description.key == "next_rain_window"
+                and plan.get("available")
+                and plan["precipitation"]["status"] == "not_expected"
+            ):
+                status = status_attributes(
+                    "not_applicable",
+                    reason="no_rain_window",
+                    language=self.hass.config.language if self.hass else "en",
+                )
             category = (
                 "snowfall"
                 if self.entity_description.key == "snowfall_cm"
@@ -162,13 +172,17 @@ class SScapeOutlook(CoordinatorEntity, SensorEntity):
                 if self.entity_description.key == "temperature_minimum_time"
                 else "precipitation"
             )
-            return {
-                key: value
-                for key, value in plan.items()
-                if key
-                not in ("precipitation", "wind_gust", "temperature", "snowfall", "visibility")
-            } | {"outlook": plan.get(category)}
-        return {
+            return (
+                status
+                | {
+                    key: value
+                    for key, value in plan.items()
+                    if key
+                    not in ("precipitation", "wind_gust", "temperature", "snowfall", "visibility")
+                }
+                | {"outlook": plan.get(category)}
+            )
+        return status | {
             "data_kind": "model_forecast",
             "period_start": raw.get("start"),
             "period_end": raw.get("end"),

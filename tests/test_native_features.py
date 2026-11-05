@@ -89,7 +89,8 @@ async def test_dashboard_and_briefing_actions_are_read_only_and_scope_checked(ha
     parsed = yaml.safe_load(result["yaml"])
     cards = parsed["views"][0]["cards"]
     assert all(
-        card["type"] in ("weather-forecast", "grid", "button", "conditional") for card in cards
+        card["type"] in ("weather-forecast", "grid", "button", "conditional", "heading", "markdown")
+        for card in cards
     )
     assert entity_id(hass, integration, "risk") in result["yaml"]
     assert "fictional-key" not in result["yaml"] and "account-1" not in result["yaml"]

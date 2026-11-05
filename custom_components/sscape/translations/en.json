@@ -4,14 +4,15 @@
     "step": {
       "user": {
         "title": "Connect sScape",
-        "description": "Connect an sScape API key. Saved places require places:read; for points without saving choose coordinates and use integrations:read with a key not restricted to places. An API-enabled plan is required.",
+        "description": "Connect your account with an access key. Use a saved place, the HA location or another point. [Create the key in your sScape profile]({profile_url}).",
         "data": {
           "host": "sScape server",
           "api_key": "API key",
-          "use_coordinates": "Use latitude and longitude without saving a place"
+          "location_mode": "Which location would you like to use?"
         },
         "data_description": {
-          "host": "Full origin, for example https://sscape.leofabri.com. Do not add /api/v1."
+          "host": "Full origin, for example https://sscape.leofabri.com. Do not add /api/v1.",
+          "api_key": "Saved places: places:read. Coordinates: integrations:read and a key not restricted to places. Mixed mode: both. Your plan must allow API access."
         }
       },
       "reauth_confirm": {
@@ -39,6 +40,82 @@
           "radius_km": "Monitored radius (km)",
           "enabled": "Monitor this point"
         }
+      },
+      "preferences": {
+        "title": "Choose only what you need",
+        "description": "Start with the essential overview. Previously configured options stay unchanged unless you choose to edit them.",
+        "data": {
+          "weather_enabled": "Weather and hourly forecasts",
+          "dashboard_profile": "Default dashboard",
+          "configure_local": "Link or edit my outdoor instruments",
+          "configure_notifications": "Set up or edit notifications",
+          "configure_assist": "Set up or edit Assist"
+        }
+      },
+      "review": {
+        "title": "Ready to connect sScape",
+        "description": "Active targets: **{count}**.\n\n{targets}\n\nSaving preserves IDs and history. Then open **sScape setup** in the sidebar to preview and create a new dashboard. Existing dashboards are not modified.",
+        "submit": "Save and finish"
+      },
+      "notification_test": {
+        "title": "Does the notification actually arrive?",
+        "description": "Only **Send test** sends a notification. Request status: {test_state}.\n\nAn accepted request does not prove receipt. Check your device and choose **I received it**, or continue without verifying. No real warning is sent.",
+        "data": {
+          "test_action": "What would you like to do?"
+        }
+      },
+      "assist_target": {
+        "title": "Which target needs a nickname?",
+        "data": {
+          "target": "Target"
+        }
+      },
+      "assist_aliases": {
+        "title": "What would you like to call it in Assist?",
+        "description": "Target: **{target}**. Add one nickname at a time, for example Home or Garden. No special syntax. Avoid names already used by other targets.",
+        "data": {
+          "place_aliases": "Nicknames, up to 8"
+        }
+      },
+      "notifications": {
+        "title": "One notification per episode",
+        "description": "Choose a destination by name. Groups only the same episode and source. Send a test in the next step. Nothing is sent automatically at startup.",
+        "data": {
+          "episode_notifications": "Enable grouped notifications",
+          "episode_kinds": "Episode types",
+          "notification_target": "Device or destination"
+        }
+      },
+      "assist": {
+        "title": "Ask Assist",
+        "description": "For example, ask “sScape briefing at Home”. Uses the built-in HA engine and respects read permissions. Add nicknames in the next step, without writing formulas.",
+        "data": {
+          "assist_enabled": "Enable sScape sentences",
+          "assist_allow_anonymous": "Allow requests without a user identity, such as shared voice satellites",
+          "expose_selected_entities": "Expose risk and weather of selected targets to Assist now",
+          "configure_aliases": "Add or edit nicknames for a target"
+        }
+      },
+      "local_sensors": {
+        "title": "Your local instruments",
+        "description": "Choose the target for these instruments. Values stay in Home Assistant and do not alter sScape assessments.",
+        "data": {
+          "target": "Place or point"
+        }
+      },
+      "local_sensor_details": {
+        "title": "Select outdoor sensors",
+        "description": "Bind only weather instruments at this location, not indoor sensors or forecasts. Units are checked and converted. Missing or stale readings never become zero. A counter is not interpreted as rain rate.",
+        "data": {
+          "temperature": "Outdoor temperature",
+          "humidity": "Outdoor humidity",
+          "pressure": "Atmospheric pressure",
+          "wind_speed": "Wind speed",
+          "wind_gust": "Wind gust",
+          "rain_rate": "Rain rate",
+          "rain_counter": "Rain counter, period defined by the sensor",
+          "confirm_outdoor": "I confirm these are outdoor weather instruments for this target"
+        }
       }
     },
     "error": {
@@ -52,25 +129,37 @@
       "invalid_places": "Select only places authorized by this key.",
       "server_update_required": "Update the sScape server to support explicit place selection.",
       "coordinate_access_denied": "Requires integrations:read, an API plan and a key not restricted to places.",
-      "invalid_coordinates": "Check name, latitude (−90…90), longitude (−180…180) and radius (1–1000 km)."
+      "invalid_coordinates": "Check name, latitude (−90…90), longitude (−180…180) and radius (1–1000 km).",
+      "invalid_aliases": "Use up to 8 short nicknames, different from other targets' names.",
+      "test_not_sent": "Send a test first, or continue without confirming receipt.",
+      "test_rate_limited": "Wait 30 seconds before another test.",
+      "notification_test_failed": "The request failed. Check the destination.",
+      "invalid_notify_service": "Choose an available notify service.",
+      "outdoor_required": "Confirm these are outdoor instruments at the target.",
+      "invalid_local_sensor": "Sensor missing, incompatible units, or an sScape forecast."
     },
     "abort": {
       "already_configured": "This sScape account is already configured on this server.",
       "reauth_successful": "The API key was updated."
+    },
+    "create_entry": {
+      "setup_ready": "Connection configured. [Open sScape setup]({setup_url}) to see the dashboard before creating it. Existing dashboards stay unchanged."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Places and updates",
-        "description": "Choose the places to import. Empty selection with Follow all off imports nothing. Excluded entities are disabled without deleting history.",
-        "data": {
-          "places": "Followed places",
-          "update_interval": "Update interval (seconds, 60–900)",
-          "follow_all_places": "Follow all authorized places, including future additions",
-          "weather_enabled": "Weather and hourly forecasts",
-          "push_updates": "Push updates when supported by the server",
-          "configure_more": "After saving, configure"
+        "title": "What would you like to configure?",
+        "description": "Edit one setting directly, or complete the guided journey. Everything else stays unchanged.",
+        "menu_options": {
+          "preferences": "Guided setup",
+          "saved_places": "Saved sScape places",
+          "home_point": "Use the Home Assistant location",
+          "coordinate": "Coordinate targets",
+          "local_sensors": "My outdoor instruments",
+          "notifications": "Notifications",
+          "assist": "Assist and nicknames",
+          "advanced": "Advanced settings"
         }
       },
       "coordinate": {
@@ -114,21 +203,73 @@
       },
       "notifications": {
         "title": "One notification per episode",
-        "description": "Optional. Groups places only when sScape supplies the same event ID and source. No startup replay or all-clear inferred from missing data. Uses a notify service, for example the Companion App.",
+        "description": "Choose a destination by name. Groups only the same episode and source. Send a test in the next step. Nothing is sent automatically at startup.",
         "data": {
           "episode_notifications": "Enable grouped notifications",
-          "notify_service": "Notification destination",
-          "episode_kinds": "Episode types"
+          "episode_kinds": "Episode types",
+          "notification_target": "Device or destination"
         }
       },
       "assist": {
         "title": "Ask Assist",
-        "description": "Use phrases such as “sScape briefing at Home” or “sScape rain forecast at Home”. Works with the built-in Home Assistant agent. Requires exposed entities and read permission. Optional aliases: one line “Place name = home, garden”. Ambiguous names are not answered.",
+        "description": "For example, ask “sScape briefing at Home”. Uses the built-in HA engine and respects read permissions. Add nicknames in the next step, without writing formulas.",
         "data": {
           "assist_enabled": "Enable sScape sentences",
           "assist_allow_anonymous": "Allow requests without a user identity, such as shared voice satellites",
           "expose_selected_entities": "Expose risk and weather of selected targets to Assist now",
-          "aliases": "Place aliases (optional)"
+          "configure_aliases": "Add or edit nicknames for a target"
+        }
+      },
+      "preferences": {
+        "title": "Choose only what you need",
+        "description": "Start with the essential overview. Previously configured options stay unchanged unless you choose to edit them.",
+        "data": {
+          "weather_enabled": "Weather and hourly forecasts",
+          "dashboard_profile": "Default dashboard",
+          "configure_local": "Link or edit my outdoor instruments",
+          "configure_notifications": "Set up or edit notifications",
+          "configure_assist": "Set up or edit Assist"
+        }
+      },
+      "review": {
+        "title": "Ready to connect sScape",
+        "description": "Active targets: **{count}**.\n\n{targets}\n\nSaving preserves IDs and history. Then open **sScape setup** in the sidebar to preview and create a new dashboard. Existing dashboards are not modified.",
+        "submit": "Save and finish"
+      },
+      "notification_test": {
+        "title": "Does the notification actually arrive?",
+        "description": "Only **Send test** sends a notification. Request status: {test_state}.\n\nAn accepted request does not prove receipt. Check your device and choose **I received it**, or continue without verifying. No real warning is sent.",
+        "data": {
+          "test_action": "What would you like to do?"
+        }
+      },
+      "assist_target": {
+        "title": "Which target needs a nickname?",
+        "data": {
+          "target": "Target"
+        }
+      },
+      "assist_aliases": {
+        "title": "What would you like to call it in Assist?",
+        "description": "Target: **{target}**. Add one nickname at a time, for example Home or Garden. No special syntax. Avoid names already used by other targets.",
+        "data": {
+          "place_aliases": "Nicknames, up to 8"
+        }
+      },
+      "saved_places": {
+        "title": "Which places belong in Home Assistant?",
+        "description": "Select only the places to import. Follow all also includes future places accessible with this key; it is optional. Excluded places remain in the sScape app.",
+        "data": {
+          "places": "Places to import",
+          "follow_all_places": "Follow all authorized places, including future additions"
+        }
+      },
+      "advanced": {
+        "title": "Updates and connection",
+        "description": "Defaults are appropriate in most cases. Push does not change source latency.",
+        "data": {
+          "update_interval": "Recovery polling interval, seconds",
+          "push_updates": "Push updates when available"
         }
       }
     },
@@ -138,10 +279,13 @@
       "outdoor_required": "Confirm these are outdoor instruments at the target.",
       "invalid_local_sensor": "Sensor missing, incompatible units, or an sScape forecast.",
       "invalid_notify_service": "Choose an available notify service.",
-      "invalid_aliases": "Use one line “Place name = alias, another alias”. The name must match exactly one selected target.",
+      "invalid_aliases": "Use up to 8 short nicknames, different from other targets' names.",
       "coordinate_access_denied": "Requires integrations:read, an API plan and a key not restricted to places.",
       "invalid_auth": "The API key is invalid, revoked or expired.",
-      "cannot_connect": "Cannot read the sScape API. Check the server address and try again later."
+      "cannot_connect": "Cannot read the sScape API. Check the server address and try again later.",
+      "test_not_sent": "Send a test first, or continue without confirming receipt.",
+      "test_rate_limited": "Wait 30 seconds before another test.",
+      "notification_test_failed": "The request failed. Check the destination."
     },
     "abort": {
       "invalid_auth": "Check the API key and authorized places.",
@@ -292,6 +436,17 @@
       },
       "local_rain_counter": {
         "name": "Local · Rain counter, period defined by the sensor"
+      },
+      "connection_status": {
+        "name": "Data availability",
+        "state": {
+          "ready": "Connection active",
+          "disconnected": "Disconnected",
+          "assessment_expired": "Assessment expired",
+          "assessment_missing": "No assessment supplied",
+          "reauthentication_required": "Update access key",
+          "rate_limited": "Waiting after request limit"
+        }
       }
     },
     "binary_sensor": {
@@ -356,6 +511,12 @@
         },
         "include_optional": {
           "name": "Include optional indicators in preview"
+        },
+        "profile": {
+          "name": "Detail level"
+        },
+        "detail_groups": {
+          "name": "Evidence groups"
         }
       }
     },
@@ -383,6 +544,24 @@
     "get_setup": {
       "name": "Read dashboard setup",
       "description": "Lists selected targets and entities for preview. Does not return API keys or modify dashboards. Administrator only."
+    },
+    "test_notification": {
+      "name": "Test notifications",
+      "description": "Sends an explicit test. Does not verify receipt. Administrator only.",
+      "fields": {
+        "notification_target": {
+          "name": "Destination"
+        }
+      }
+    },
+    "test_assist": {
+      "name": "Test Assist for a target",
+      "description": "Shows the built-in engine response, respecting exposure and permissions. Does not verify voice hardware. Administrator only.",
+      "fields": {
+        "device_id": {
+          "name": "sScape place"
+        }
+      }
     }
   },
   "selector": {
@@ -392,6 +571,26 @@
         "official": "Official warnings",
         "earthquake": "Recent earthquakes",
         "thermal": "Satellite thermal detections"
+      }
+    },
+    "dashboard_profile": {
+      "options": {
+        "essential": "Essential: situation and next hours",
+        "detailed": "Detailed: optional evidence"
+      }
+    },
+    "location_mode": {
+      "options": {
+        "saved_places": "One or more saved sScape places",
+        "home": "The Home Assistant location",
+        "coordinates": "Another point, using coordinates"
+      }
+    },
+    "notification_test": {
+      "options": {
+        "send": "Send test",
+        "received": "I received it, continue",
+        "skip": "Continue without verifying receipt"
       }
     }
   }

@@ -226,16 +226,35 @@ class LocalSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def available(self):
+        source = (
+            self.hass.states.get(self.record.get("source_entity_id", "")) if self.hass else None
+        )
         return (
             not self.parent.stopping
             and allows_target(self.parent.config_entry, self.place_id)
-            and self.record.get("valid", False)
+            and source is not None
+            and source.state != "unavailable"
+            and not source.attributes.get("restored")
+            and self.record.get("quality") != "stale"
         )
 
     @property
     def native_value(self):
-        return self.record.get("value") if self.available else None
+        return self.record.get("value") if self.available and self.record.get("valid") else None
 
     @property
     def extra_state_attributes(self):
-        return {key: value for key, value in self.record.items() if key not in ("value", "valid")}
+        from .status import status_attributes
+
+        status = (
+            "available"
+            if self.record.get("valid")
+            else "source_stale"
+            if self.record.get("quality") == "stale"
+            else "missing"
+            if self.available
+            else "unavailable"
+        )
+        return {
+            key: value for key, value in self.record.items() if key not in ("value", "valid")
+        } | status_attributes(status, language=self.hass.config.language if self.hass else "en")

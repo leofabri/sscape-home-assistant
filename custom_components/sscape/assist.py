@@ -10,6 +10,7 @@ from .const import DOMAIN
 from .hazards import hazards_for
 from .planning import make_outlook
 from .targets import allows_target
+from .weather import forecast_available
 
 DATA_ASSIST = "sscape_assist"
 SENTENCES = {
@@ -110,7 +111,9 @@ class SScapeAssist:
         if len(candidates) != 1:
             return denied
         parent, place = candidates[0]
-        if not parent.last_update_success or not place.is_fresh():
+        if kind in ("briefing", "alerts") and (
+            not parent.last_update_success or not place.is_fresh()
+        ):
             return (
                 "L’analisi non è al momento disponibile."
                 if italian
@@ -148,7 +151,7 @@ class SScapeAssist:
                 )
             return text
         weather = parent.weather_coordinators.get(place.place_id)
-        if weather is None or not weather.last_update_success:
+        if not forecast_available(parent, weather, place.place_id):
             return "Previsione non disponibile." if italian else "Forecast unavailable."
         plan = make_outlook(weather.data, hours=6 if kind == "rain" else 24)
         if not plan["available"]:
@@ -214,6 +217,23 @@ async def setup_assist(hass, parent):
         return
     if not await async_setup_component(hass, "conversation", {}):
         return
+    if pending := parent.config_entry.options.get("assist_exposure_pending"):
+        from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
+
+        if await async_setup_component(hass, "homeassistant", {}):
+            registry = er.async_get(hass)
+            for target in pending:
+                if not allows_target(parent.config_entry, target):
+                    continue
+                for domain, key in (("sensor", "risk"), ("weather", "forecast")):
+                    entity = registry.async_get_entity_id(
+                        domain, DOMAIN, f"{parent.config_entry.unique_id}|{target}|{key}"
+                    )
+                    if entity and registry.async_get(entity).disabled_by is None:
+                        async_expose_entity(hass, "conversation", entity, True)
+            options = dict(parent.config_entry.options)
+            options.pop("assist_exposure_pending", None)
+            hass.config_entries.async_update_entry(parent.config_entry, options=options)
     manager = hass.data.setdefault(DATA_ASSIST, SScapeAssist(hass))
     manager.add(parent)
     parent.assist_manager = manager

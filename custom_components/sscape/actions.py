@@ -1,20 +1,24 @@
-"""Read-only HA actions. They never create dashboards or operate devices."""
+"""Admin-only queries and explicit notification/Assist tests, never device control."""
 
+from time import monotonic
 from urllib.parse import quote
 
 import voluptuous as vol
 import yaml
 from homeassistant.core import SupportsResponse
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.service import async_register_admin_service
 
 from .const import DOMAIN
-from .dashboard import build_dashboard, place_map_url
+from .dashboard import DETAIL_GROUPS, build_dashboard, place_map_url
 from .hazards import hazards_for
+from .notifications import async_notify, notification_choices, target_options
 from .planning import make_outlook
+from .presentation import target_summary
 from .targets import allows_target
+from .weather import forecast_available
 
 
 def setup_actions(hass):
@@ -62,7 +66,7 @@ def setup_actions(hass):
     async def outlook(call):
         _, parent, place = selected_place(call.data["device_id"])
         weather = parent.weather_coordinators.get(place.place_id)
-        if not parent.last_update_success or weather is None or not weather.last_update_success:
+        if not forecast_available(parent, weather, place.place_id):
             return {"available": False, "reason": "forecast_unavailable"}
         return make_outlook(weather.data, hours=call.data["hours"])
 
@@ -109,9 +113,77 @@ def setup_actions(hass):
                             "entities": entities,
                             "coordinate_target": place.place_id in parent.client.points,
                             "assessment_available": parent.last_update_success and place.is_fresh(),
+                            "summary": target_summary(hass, parent, place),
+                            "dashboard_profile": config.options.get(
+                                "dashboard_profile", "essential"
+                            ),
+                            "assist_enabled": config.options.get("assist_enabled", False),
                         }
                     )
-        return {"targets": result, "writes_performed": False}
+        return {
+            "targets": result,
+            "writes_performed": False,
+            "notification_targets": notification_choices(hass),
+        }
+
+    test_times = {}
+
+    async def test_notification(call):
+        target = call.data["notification_target"]
+        key = (call.context.user_id, target)
+        if monotonic() - test_times.get(key, -1000) < 30:
+            raise ServiceValidationError("Wait 30 seconds before another test")
+        test_times[key] = monotonic()
+        while len(test_times) > 128:
+            test_times.pop(next(iter(test_times)))
+        try:
+            options = target_options(hass, target)
+            await async_notify(
+                hass,
+                options,
+                {
+                    "title": "sScape · Test",
+                    "message": "Notifica di prova sScape. Nessuna allerta reale."
+                    if hass.config.language.startswith("it")
+                    else "sScape test notification. This is not a real warning.",
+                },
+            )
+        except (TimeoutError, HomeAssistantError):
+            raise ServiceValidationError(
+                "Notification request failed; check the destination"
+            ) from None
+        return {"request_accepted": True, "receipt_verified": False}
+
+    async def test_assist(call):
+        _, parent, place = selected_place(call.data["device_id"])
+        if getattr(parent, "assist_manager", None) is None:
+            return {
+                "available": False,
+                "reason": "assist_disabled",
+                "hardware_delivery_verified": False,
+            }
+        from homeassistant.components import conversation
+
+        phrase = (
+            "sscape situazione a "
+            if hass.config.language.startswith("it")
+            else "sscape briefing at "
+        ) + place.name
+        reply = await conversation.async_converse(
+            hass,
+            phrase,
+            None,
+            call.context,
+            language=hass.config.language,
+            agent_id=conversation.HOME_ASSISTANT_AGENT,
+        )
+        speech = reply.response.as_dict().get("speech", {}).get("plain", {}).get("speech", "")
+        return {
+            "available": True,
+            "phrase": phrase,
+            "speech": str(speech)[:1000],
+            "hardware_delivery_verified": False,
+        }
 
     async def dashboard(call):
         entry, parent, place = selected_place(call.data["device_id"])
@@ -122,24 +194,55 @@ def setup_actions(hass):
             place,
             all_places=call.data["all_selected_places"],
             include_optional=call.data["include_optional"],
+            profile=call.data.get("profile"),
+            detail_groups=call.data.get("detail_groups"),
         )
+        items = (
+            sorted(
+                (p for p in parent.data.places.values() if allows_target(entry, p.place_id)),
+                key=lambda p: (p.name.casefold(), p.place_id),
+            )
+            if call.data["all_selected_places"]
+            else [place]
+        )
+        view_targets = {}
+        for index, item in enumerate(items, start=1):
+            prefix = f"{entry.unique_id}|{item.place_id}|"
+            device_id = next(
+                (
+                    e.device_id
+                    for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+                    if e.unique_id.startswith(prefix) and e.device_id
+                ),
+                None,
+            )
+            if device_id:
+                view_targets[
+                    f"sscape-{index}" if call.data["all_selected_places"] else "sscape"
+                ] = device_id
         return {
             "yaml": yaml.safe_dump(value, allow_unicode=True, sort_keys=False),
             "uses_native_cards_only": True,
             "writes_performed": False,
             "config": value,
+            "view_targets": view_targets,
+            "target_device_ids": list(dict.fromkeys(view_targets.values())),
         }
 
     for name, handler, fields in (
         ("get_briefing", briefing, {}),
         ("get_hazards", hazards, {}),
         ("get_setup", setup_info, {}),
+        ("test_assist", test_assist, {}),
+        ("test_notification", test_notification, {vol.Required("notification_target"): str}),
         (
             "get_dashboard",
             dashboard,
             {
                 vol.Optional("all_selected_places", default=False): bool,
                 vol.Optional("include_optional", default=False): bool,
+                vol.Optional("profile"): vol.In(["essential", "detailed"]),
+                vol.Optional("detail_groups"): [vol.In(DETAIL_GROUPS)],
             },
         ),
         (
@@ -154,7 +257,9 @@ def setup_actions(hass):
             name,
             handler,
             schema=vol.Schema(
-                {} if name == "get_setup" else {vol.Required("device_id"): str, **fields}
+                fields
+                if name in ("get_setup", "test_notification")
+                else {vol.Required("device_id"): str, **fields}
             ),
             supports_response=SupportsResponse.ONLY,
         )

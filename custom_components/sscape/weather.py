@@ -14,9 +14,25 @@ from .api import AuthenticationError, CannotConnect, PermissionDenied, RateLimit
 from .const import CONF_WEATHER
 from .entity import async_watch_places, place_device_info
 from .forecast import WeatherSnapshot
+from .targets import allows_target
 
 _LOGGER = logging.getLogger(__name__)
 PARALLEL_UPDATES = 0
+
+
+def forecast_available(parent, coordinator, place_id):
+    """A valid forecast is independent of the hazard assessment's connection."""
+    return bool(
+        not parent.stopping
+        and getattr(parent, "failure_reason", None)
+        not in ("authentication_failed", "access_denied")
+        and allows_target(parent.config_entry, place_id)
+        and place_id in parent.data.places
+        and coordinator
+        and coordinator.last_update_success
+        and coordinator.data
+        and coordinator.data.is_fresh()
+    )
 
 
 class SScapeWeatherCoordinator(DataUpdateCoordinator[WeatherSnapshot]):
@@ -121,11 +137,8 @@ class SScapeWeather(SingleCoordinatorWeatherEntity[SScapeWeatherCoordinator]):
 
     @property
     def available(self):
-        return (
-            super().available
-            and self.parent.last_update_success
-            and self.place_id in self.parent.data.places
-            and bool(self.coordinator.data and self.coordinator.data.is_fresh())
+        return super().available and forecast_available(
+            self.parent, self.coordinator, self.place_id
         )
 
     @property

@@ -5,6 +5,7 @@ from homeassistant.const import EntityCategory
 
 from .entity import SScapeEntity, async_watch_places
 from .hazards import hazards_for
+from .status import value_status
 
 PARALLEL_UPDATES = 0
 
@@ -60,7 +61,7 @@ class SScapeSignal(SScapeEntity, BinarySensorEntity):
 
     @property
     def available(self):
-        return super().available and self.is_on is not None
+        return super().available
 
     @property
     def is_on(self):
@@ -68,10 +69,18 @@ class SScapeSignal(SScapeEntity, BinarySensorEntity):
 
     @property
     def extra_state_attributes(self):
+        status = value_status(
+            self.place,
+            self.key,
+            self.is_on,
+            connected=self.coordinator.last_update_success,
+            language=self.hass.config.language if self.hass else "en",
+        )
         if not self.available:
-            return None
-        attrs = {"scope": "available observations and catalogue records; not a safety guarantee"}
-        briefing = self.place.briefing
+            return status
+        attrs = status | {
+            "scope": "available observations and catalogue records; not a safety guarantee"
+        }
         if self.key == "storm_approach":
             attrs["eta_minutes"] = self.place.eta_minutes
         if self.key == "lightning_detected":
@@ -87,7 +96,6 @@ class SScapeSignal(SScapeEntity, BinarySensorEntity):
         if self.key == "wildfire_detected":
             attrs["detections"] = [
                 {key: item.get(key) for key in ("source", "observed_at", "distance_km", "kind")}
-                for item in briefing.get("environmental_signals", [])[:10]
-                if isinstance(item, dict) and item.get("kind") == "fire"
+                for item in hazards_for(self.place).get("thermal_detections", [])[:10]
             ]
         return attrs

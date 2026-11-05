@@ -81,6 +81,10 @@ async def test_user_flow(hass, client):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"places": ["place-1"], "follow_all_places": False}
         )
+        assert result["step_id"] == "preferences"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        assert result["step_id"] == "review"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
         assert result["type"] == "create_entry"
         assert result["data"]["account_id"] == "account-1"
         assert result["result"].unique_id == "https://example.com|account-1"
@@ -232,13 +236,21 @@ async def test_options_selection_interval_and_reload(hass, entry, client):
         "homeassistant.config_entries.ConfigEntries.async_reload", return_value=True
     ) as reload:
         result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"next_step_id": "saved_places"}
+        )
+        result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             {
                 "places": ["place-1"],
-                "update_interval": 180,
                 "follow_all_places": False,
-                "weather_enabled": False,
             },
+        )
+        second = await hass.config_entries.options.async_init(entry.entry_id)
+        second = await hass.config_entries.options.async_configure(
+            second["flow_id"], {"next_step_id": "advanced"}
+        )
+        result = await hass.config_entries.options.async_configure(
+            second["flow_id"], {"update_interval": 180, "push_updates": True}
         )
         await hass.async_block_till_done()
     assert result["type"] == "create_entry"
@@ -248,8 +260,10 @@ async def test_options_selection_interval_and_reload(hass, entry, client):
         "follow_all_places": False,
         "weather_enabled": False,
         "push_updates": True,
+        "coordinate_only": False,
     }
-    reload.assert_awaited_once_with(entry.entry_id)
+    assert reload.await_count == 2  # Two independent saves, one reload each.
+    assert all(call.args == (entry.entry_id,) for call in reload.await_args_list)
 
 
 async def test_dynamic_place_discovery_and_rename(hass, entry, client, payload):

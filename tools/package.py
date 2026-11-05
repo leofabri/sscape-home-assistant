@@ -10,6 +10,7 @@ FILES = (
     "actions.py",
     "__init__.py",
     "api.py",
+    "availability.py",
     "assist.py",
     "binary_sensor.py",
     "config_flow.py",
@@ -24,6 +25,10 @@ FILES = (
     "hazards.py",
     "hazard_entities.py",
     "local_sensors.py",
+    "journey.py",
+    "notifications.py",
+    "presentation.py",
+    "status.py",
     "manifest.json",
     "measurements.py",
     "outlook.py",
@@ -41,6 +46,9 @@ FILES = (
     "brand/icon.png",
     "www/setup.js",
     "www/setup-controller.js",
+    "www/setup-preview.js",
+    "www/setup-tests.js",
+    "www/setup.css",
 )
 
 

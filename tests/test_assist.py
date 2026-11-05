@@ -19,7 +19,7 @@ from custom_components.sscape.forecast import WeatherSnapshot
 async def test_assist_answers_selected_exposed_place_and_denies_unexposed(hass, payload):
     assert await async_setup_component(hass, "homeassistant", {})
     assert await async_setup_component(hass, "conversation", {})
-    user = await hass.auth.async_create_user("Test owner")
+    user = await hass.auth.async_create_user("Test owner", group_ids=["system-admin"])
     entry = MockConfigEntry(
         domain="sscape",
         version=2,
@@ -50,6 +50,16 @@ async def test_assist_answers_selected_exposed_place_and_denies_unexposed(hass, 
         )
         speech = result.response.as_dict()["speech"]["plain"]["speech"]
         assert "storm is approaching" in speech
+        response = await hass.services.async_call(
+            "sscape",
+            "test_assist",
+            {"device_id": er.async_get(hass).async_get(risk).device_id},
+            blocking=True,
+            return_response=True,
+            context=Context(user_id=user.id),
+        )
+        assert "storm is approaching" in response["speech"]
+        assert response["hardware_delivery_verified"] is False
         async_expose_entity(hass, "conversation", risk, False)
         result = await conversation.async_converse(
             hass, "sscape briefing at Test place", None, Context(user_id=user.id), language="en"

@@ -49,6 +49,9 @@ async def test_new_setup_requires_an_explicit_place_choice(hass, catalog):
                 "follow_all_places": False,
             },
         )
+        assert done["step_id"] == "preferences"
+        done = await hass.config_entries.flow.async_configure(done["flow_id"], {})
+        done = await hass.config_entries.flow.async_configure(done["flow_id"], {})
         assert done["type"] == "create_entry"
         assert done["options"]["places"] == ["place-1"]
         assert done["options"]["follow_all_places"] is False

@@ -29,7 +29,7 @@ async def setup_panel(hass, entry):
             frontend_url_path=PANEL,
             sidebar_title="sScape setup",
             sidebar_icon="mdi:weather-partly-cloudy",
-            module_url="/sscape-static/setup.js?v=0.5.1",
+            module_url="/sscape-static/setup.js?v=0.6.0",
             require_admin=True,
         )
         state["owned"] = True

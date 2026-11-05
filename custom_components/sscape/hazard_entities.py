@@ -6,6 +6,7 @@ from homeassistant.const import UnitOfLength
 from .api import _time
 from .entity import SScapeEntity, async_watch_places
 from .hazards import hazards_for
+from .status import value_status
 
 DESCRIPTIONS = (
     SensorEntityDescription(
@@ -94,8 +95,15 @@ class HazardSensor(SScapeEntity, SensorEntity):
 
     @property
     def available(self):
-        return super().available and self.native_value is not None
+        return super().available
 
     @property
     def extra_state_attributes(self):
-        return self.evidence if self.available else None
+        status = value_status(
+            self.place,
+            self.entity_description.key,
+            self.native_value,
+            connected=self.coordinator.last_update_success,
+            language=self.hass.config.language if self.hass else "en",
+        )
+        return status | (self.evidence or {}) if self.available else status

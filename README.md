@@ -4,6 +4,51 @@ Un dispositivo per ogni luogo o punto geografico scelto, configurato dall’inte
 Assistant. Nessun YAML obbligatorio, nessuna porta da aprire, nessuna password
 dell’account da consegnare all’integrazione.
 
+## Novità della 0.6
+
+- **Configurazione guidata unica**: scegli luoghi salvati, posizione di Home
+  Assistant o coordinate manuali. Poi imposta meteo, sensori locali, notifiche e
+  Assist nello stesso percorso. Le modifiche vengono salvate alla conferma
+  finale; un test di notifica è un invio esplicito, non una modifica salvata.
+- **Notifiche comprensibili**: scegli il telefono o la destinazione per nome,
+  senza scrivere il servizio. Il test distingue richiesta accettata e ricezione:
+  solo tu puoi confermare di averla vista sul dispositivo. Supportati anche i
+  nuovi dispositivi con entità `notify`.
+- **Assist più semplice**: alias a etichette per un luogo alla volta, senza
+  sintassi tecnica. L’esposizione iniziale delle entità è facoltativa e non
+  annulla successivi cambiamenti effettuati da te. Il test nel pannello usa
+  l’agente Home Assistant integrato, non il microfono o lo speaker.
+- **Dashboard essenziale o dettagliata**: una vera anteprima grafica precede
+  la creazione. «Adesso», «Prossime ore», «Dati e copertura» separano situazione,
+  previsioni e limiti. Gli approfondimenti sono selezionati per argomento, non
+  con una lunga lista di sensori. Se il renderer delle dashboard HA non è già
+  caricato, l’anteprima è esplicitamente indicata come semplificata.
+- **Assente non significa offline**: un valore non fornito rimane `unknown`
+  («Sconosciuto»), con una spiegazione negli attributi; un collegamento guasto o
+  un’analisi scaduta rende le relative entità `unavailable` («Non disponibile»).
+  Un ETA non pertinente non diventa zero. Il nuovo indicatore **Collegamento e
+  analisi** spiega anche i guasti quando le entità meteo non possono farlo.
+  Una previsione ancora valida rimane utilizzabile durante un’interruzione
+  dell’analisi rischi, ma non dopo un errore di autorizzazione o la scadenza.
+
+### Attiva la nuova esperienza
+
+1. Aggiorna sScape da HACS e **riavvia completamente Home Assistant**.
+2. In **Impostazioni → Dispositivi e servizi → sScape → Configura**, apri le
+   preferenze per il percorso guidato, oppure modifica direttamente una sezione.
+   Intervallo di aggiornamento e push sono nelle impostazioni avanzate.
+3. Apri **sScape setup** nella barra laterale: scegli il luogo, il profilo e
+   prepara l’anteprima. «Tutti i luoghi» riguarda lo **stesso account** scelto,
+   non altre integrazioni sScape eventualmente configurate.
+4. Conferma per creare una **nuova dashboard**, inizialmente riservata agli
+   amministratori. Quelle esistenti non cambiano automaticamente. Per avere il
+   nuovo layout, creane una nuova e verifica il risultato prima di decidere
+   cosa fare della precedente.
+
+Il pannello propone anche i test espliciti di notifica e Assist. Non aziona
+tende, allarmi o altri dispositivi. La selezione dettagliata può abilitare solo
+entità opzionali disabilitate dall’integrazione, mai quelle disabilitate da te.
+
 ## Aggiornamento 0.5.1
 
 Le richieste per coordinate rispettano anche il `Retry-After` ricevuto dal server.
@@ -23,7 +68,7 @@ di dati. La 0.5.1 include tutte le funzioni descritte sotto.
   può riguardare il **raggio monitorato** senza coprire il punto: `covers_point`
   distingue i casi verificati. Cataloghi e dettaglio delle allerte sono parziali.
 - **Inverno**: neve prevista e visibilità minima nelle prossime 24 ore. Se manca
-  un’ora necessaria, il valore resta indisponibile. La neve prevista non è una
+  un’ora necessaria, il valore resta sconosciuto. La neve prevista non è una
   misura del manto presente; la minima dell’aria non conferma gelo al suolo.
 - **Sensori locali**: associa temperatura, umidità, pressione, vento, raffica,
   intensità di pioggia e contatore da strumenti esterni HA. Unità convertite e
@@ -37,7 +82,7 @@ di dati. La 0.5.1 include tutte le funzioni descritte sotto.
   evento se vuoi evitare doppioni. Nessun dispositivo viene comandato.
 - **Dashboard guidata**: apri **sScape setup** nella barra laterale come
   amministratore. Scegli un luogo o tutti quelli importati, prepara l’anteprima,
-  seleziona gli indicatori opzionali e conferma. Viene creata solo una **nuova**
+  scegli gli approfondimenti opzionali e conferma. Viene creata solo una **nuova**
   dashboard, inizialmente riservata agli amministratori, senza copiare YAML.
   Le dashboard esistenti e le entità disabilitate da te non vengono modificate.
 - **Assist**: abilita le frasi e, se vuoi, esponi rischio e meteo dei luoghi
@@ -51,8 +96,8 @@ di dati. La 0.5.1 include tutte le funzioni descritte sotto.
 ### Attivazione
 
 Aggiorna in HACS e **riavvia completamente Home Assistant**. In **Impostazioni →
-Dispositivi e servizi → sScape → Configura** usa «Dopo il salvataggio configura»
-per coordinate, sensori locali, notifiche o Assist. Ripetere la procedura non
+Dispositivi e servizi → sScape → Configura** scegli la sezione desiderata o le
+preferenze guidate per sensori locali, notifiche e Assist. Ripetere la procedura non
 cancella le altre opzioni. Il pannello guidato richiede il frontend HA;
 su installazioni headless restano le azioni amministrative di sola lettura
 `sscape.get_dashboard`, `sscape.get_setup` e `sscape.get_hazards`.
@@ -155,9 +200,11 @@ catalogo predefinito HACS. Non devi accedere al repository principale sScape.
 3. Cerca e scarica **sScape**, quindi riavvia Home Assistant.
 4. Apri **Impostazioni → Dispositivi e servizi → Aggiungi integrazione → sScape**.
 5. Inserisci il server `https://sscape.leofabri.com` e una chiave API del tuo
-   account con il permesso `places:read`, creata nel profilo sScape.
-6. Scegli esplicitamente i luoghi da importare. Puoi invece attivare
-   **Segui tutti i luoghi**, comprese le aggiunte future autorizzate dalla chiave.
+   account, creata nel profilo sScape: `places:read` per i luoghi salvati,
+   `integrations:read` e chiave non limitata ai luoghi per posizione HA o coordinate.
+6. Scegli esplicitamente i luoghi da importare, la posizione HA o un punto manuale.
+   In modalità luoghi puoi attivare **Segui tutti i luoghi**, comprese le aggiunte
+   future autorizzate dalla chiave. Completa poi le preferenze e conferma.
 
 [Apri il repository in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=leofabri&repository=sscape-home-assistant&category=integration)
 
