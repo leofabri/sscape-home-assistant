@@ -29,6 +29,16 @@ def valid_reading(context, variable):
             continue
         value, stamp = obs.get("value"), _time(obs.get("observation_time"))
         distance = row.get("distance_km")
+        use = row.get("use_assessment")
+        if use is not None and (
+            not isinstance(use, dict)
+            or use.get("version") != "station-use.v1"
+            or use.get("state") not in ("context_only", "insufficient_metadata")
+            or use.get("station_display") is not True
+            or use.get("local_estimation") is not False
+            or use.get("hazard_confirmation") is not False
+        ):
+            return None
         if (
             obs.get("kind") != "surface_observation"
             or obs.get("unit") != unit
@@ -50,3 +60,34 @@ def valid_reading(context, variable):
             return None
         return row
     return None
+
+
+def measurement_attributes(row):
+    """Preserve station provenance without implying address-scale accuracy."""
+    observation = row["observation"]
+    station = observation.get("station", {})
+    use = row.get("use_assessment") or {}
+
+    def height(value):
+        return value if type(value) in (int, float) and math.isfinite(value) else None
+
+    return {
+        "data_kind": "surface_observation",
+        "station": station.get("name"),
+        "distance_km": row["distance_km"],
+        "scope": row["scope"],
+        "observation_time": observation["observation_time"],
+        "source": observation["source_id"],
+        "attribution": observation["attribution"],
+        "license_url": observation["license_url"],
+        "quality": observation["quality"]["status"],
+        "source_unit": observation["unit"],
+        "station_elevation_m": height(station.get("elevation_m")),
+        "station_elevation_datum": station.get("elevation_datum"),
+        "sensor_height_m": height(observation.get("sensor_height_m")),
+        "representativeness": use.get("state", "not_evaluated"),
+        "use_reasons": use.get("reasons", []),
+        # No validated point estimator or hazard confirmation exists in v1.
+        "local_estimation_allowed": False,
+        "hazard_confirmation": False,
+    }

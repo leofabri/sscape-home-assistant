@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.1
+
+- Station measurements retain ground elevation, its datum and sensor height as
+  separate attributes, including the new Arpae observations exposed by sScape.
+- Explicit station-use permissions are respected: excluded, unknown or
+  contradictory assessments cannot drive measurement entities. A station value
+  is never presented as a measurement or hazard confirmation at another address.
+- Existing entity identifiers and history are unchanged; older servers remain
+  supported. Update through HACS and restart Home Assistant fully.
+
 ## 0.6.0
 
 - One initial setup journey for saved places, Home Assistant's home location or manual coordinates, followed by optional local instruments, notifications and Assist; options are saved only on final confirmation. Technical polling/push settings live under Advanced.

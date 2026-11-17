@@ -13,6 +13,7 @@ from homeassistant.const import (
 from .availability import SScapeAvailability
 from .const import RISK_LEVELS
 from .entity import SScapeEntity, async_watch_places
+from .measurements import measurement_attributes
 from .status import value_status
 
 PARALLEL_UPDATES = 0
@@ -240,17 +241,5 @@ class SScapeSensor(SScapeEntity, SensorEntity):
                 row = self.place.reading(variable)
                 if row is None:
                     return status
-                observation = row["observation"]
-                return status | {
-                    "data_kind": "surface_observation",
-                    "station": observation.get("station", {}).get("name"),
-                    "distance_km": row["distance_km"],
-                    "scope": row["scope"],
-                    "observation_time": observation["observation_time"],
-                    "source": observation["source_id"],
-                    "attribution": observation["attribution"],
-                    "license_url": observation["license_url"],
-                    "quality": observation["quality"]["status"],
-                    "source_unit": observation["unit"],
-                }
+                return status | measurement_attributes(row)
         return status
