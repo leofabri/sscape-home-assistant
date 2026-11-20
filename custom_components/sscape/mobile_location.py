@@ -5,11 +5,13 @@ import json
 import math
 import re
 from datetime import timedelta
+from pathlib import Path
 from time import monotonic
 
 import aiohttp
 import voluptuous as vol
 from homeassistant.components import websocket_api
+from homeassistant.const import EVENT_COMPONENT_LOADED
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
@@ -394,21 +396,34 @@ async def setup_mobile_location(hass):
         websocket_api.async_register_command(hass, command)
 
     if "frontend" in hass.config.components:
-        from pathlib import Path
+        await _register_mobile_panel(hass)
+        return
 
-        from homeassistant.components.http import StaticPathConfig
-        from homeassistant.components.panel_custom import async_register_panel
+    # The frontend is optional. If it starts after sScape, register only once
+    # it is ready instead of silently dropping the panel for this HA session.
+    async def frontend_loaded(event):
+        if event.data.get("component") != "frontend":
+            return
+        unsubscribe()
+        await _register_mobile_panel(hass)
 
-        path = Path(__file__).parent / "www" / "mobile-location.js"
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig("/sscape-mobile.js", str(path), False)]
-        )
-        await async_register_panel(
-            hass,
-            webcomponent_name="sscape-mobile-location",
-            frontend_url_path="sscape-mobile",
-            sidebar_title="sScape GPS",
-            sidebar_icon="mdi:cellphone-marker",
-            module_url="/sscape-mobile.js",
-            require_admin=False,
-        )
+    unsubscribe = hass.bus.async_listen(EVENT_COMPONENT_LOADED, frontend_loaded)
+
+
+async def _register_mobile_panel(hass):
+    from homeassistant.components.http import StaticPathConfig
+    from homeassistant.components.panel_custom import async_register_panel
+
+    path = Path(__file__).parent / "www" / "mobile-location.js"
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig("/sscape-mobile.js", str(path), False)]
+    )
+    await async_register_panel(
+        hass,
+        webcomponent_name="sscape-mobile-location",
+        frontend_url_path="sscape-mobile",
+        sidebar_title="sScape GPS",
+        sidebar_icon="mdi:cellphone-marker",
+        module_url="/sscape-mobile.js",
+        require_admin=False,
+    )

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2
+
+- Show **sScape GPS** even if Home Assistant's frontend starts after sScape.
+  The panel still works for non-admin users. Update and restart Home Assistant;
+  existing devices, entities and phone links are unchanged.
+
 ## 0.7.1
 
 - Use the current sScape mark for the Home Assistant integration icon instead

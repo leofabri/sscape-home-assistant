@@ -1,11 +1,17 @@
 """Two real HA WebSocket users on one instance; no network or real phone data."""
 
 from datetime import timedelta
+from http import HTTPStatus
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from homeassistant.auth.const import GROUP_ID_USER
+from homeassistant.components.frontend import DATA_PANELS
+from homeassistant.const import EVENT_COMPONENT_LOADED
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.loader import async_get_integration
+from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -17,6 +23,34 @@ from custom_components.sscape.mobile_location import (
     mobile_report_signal,
     setup_mobile_location,
 )
+
+
+@pytest.mark.parametrize("frontend_first", [True, False])
+async def test_gps_panel_and_module_available_regardless_of_startup_order(
+    hass, hass_client_no_auth, frontend_first
+):
+    assert await async_setup_component(hass, "http", {})
+    if frontend_first:
+        hass.config.components.add("frontend")
+    await setup_mobile_location(hass)
+    if not frontend_first:
+        hass.bus.async_fire(EVENT_COMPONENT_LOADED, {"component": "http"})
+        await hass.async_block_till_done()
+        assert "sscape-mobile" not in hass.data.get(DATA_PANELS, {})
+        await async_get_integration(hass, "frontend")
+        hass.config.components.add("frontend")
+        hass.bus.async_fire(EVENT_COMPONENT_LOADED, {"component": "frontend"})
+        await hass.async_block_till_done()
+
+    panel = hass.data.get(DATA_PANELS, {}).get("sscape-mobile")
+    assert panel is not None
+    assert panel.sidebar_title == "sScape GPS"
+    assert not panel.require_admin
+    module = panel.config["_panel_custom"]["module_url"]
+    client = await hass_client_no_auth()
+    response = await client.get(module)
+    assert response.status == HTTPStatus.OK
+    assert "customElements.define('sscape-mobile-location'" in await response.text()
 
 
 async def test_two_home_assistant_users_get_only_their_phone_and_alert(hass, hass_ws_client):
@@ -110,8 +144,6 @@ def test_only_real_finite_gps_reports_are_eligible():
 
 
 async def test_disconnect_failure_persists_pause_before_contacting_cloud(hass):
-    import pytest
-
     manager = MobileLinks(hass)
     manager.links = {
         "owner-a": {"device": "device-a", "token": "A" * 43},
