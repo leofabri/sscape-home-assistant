@@ -49,6 +49,33 @@ Il pannello propone anche i test espliciti di notifica e Assist. Non aziona
 tende, allarmi o altri dispositivi. La selezione dettagliata può abilitare solo
 entità opzionali disabilitate dall’integrazione, mai quelle disabilitate da te.
 
+## La posizione del proprio telefono (0.7.0)
+
+1. Usa l’app Companion sul telefono con il **tuo utente Home Assistant** e
+   consenti la posizione. Chi condivide un login HA deve prima usare account
+   separati: il nome «Persona» non identifica chi ha dato il consenso.
+2. Dal tuo account sScape verificato con accesso API, vai in **Impostazioni →
+   Sviluppatori → Il mio telefono con Home Assistant**. Scegli una o entrambe
+   le modalità e genera un codice (valido una volta per cinque minuti).
+3. Apri **sScape GPS** in Home Assistant con il tuo login, seleziona il telefono
+   e incolla il codice. Per scollegarlo puoi usare il pannello o sScape.
+
+- **Meteo e avvisi in Home Assistant**: riepilogo nel pannello privato e, se è
+  disponibile l’entità `notify` dell’app Companion per quel telefono, avvisi su
+  quel dispositivo. Non compaiono nuovi sensori GPS nelle dashboard condivise.
+- **Posizione e push in sScape**: riepilogo in Home e avvisi con Web Push già
+  configurata nell’account. La prima versione avvisa solo per un pericolo alto
+  o severo documentato da dati recenti o un’allerta ufficiale che copre il punto.
+  L’opzione non modifica Casa o i luoghi salvati e non crea uno storico GPS.
+
+Il gateway riceve nuovi report GPS (al massimo uno al minuto per utente), non
+stati ripristinati al riavvio di HA. Il report ha una validità massima di otto
+minuti dalla ricezione del GPS da parte di Home Assistant; il telefono non
+garantisce aggiornamenti periodici né indica sempre l’istante del fix. Se il
+report manca o scade, gli avvisi su quella posizione si sospendono. Non è un
+sistema di allerta d’emergenza. L’integrazione necessita di un’installazione HA
+fidata: l’amministratore di sistema può accedere alle sue configurazioni.
+
 ## Aggiornamento 0.5.1
 
 Le richieste per coordinate rispettano anche il `Retry-After` ricevuto dal server.

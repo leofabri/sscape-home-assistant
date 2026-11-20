@@ -79,8 +79,11 @@ def test_station_observation_keeps_distance_and_original_time(payload, reading):
 
 def test_station_use_assessment_cannot_be_bypassed(payload, reading):
     reading["use_assessment"] = {
-        "version": "station-use.v1", "state": "context_only", "station_display": False,
-        "local_estimation": False, "hazard_confirmation": False,
+        "version": "station-use.v1",
+        "state": "context_only",
+        "station_display": False,
+        "local_estimation": False,
+        "hazard_confirmation": False,
     }
     assert parse_snapshot(payload).places["place-1"].reading("wind_gust") is None
     reading["use_assessment"]["station_display"] = True
@@ -95,8 +98,11 @@ def test_arpae_station_attributes_remain_station_not_local_truth(reading):
     reading["observation"].update(sensor_height_m=10)
     reading["observation"]["station"].update(elevation_m=513, elevation_datum="MSL")
     reading["use_assessment"] = {
-        "version": "station-use.v1", "state": "insufficient_metadata", "station_display": True,
-        "local_estimation": False, "hazard_confirmation": False,
+        "version": "station-use.v1",
+        "state": "insufficient_metadata",
+        "station_display": True,
+        "local_estimation": False,
+        "hazard_confirmation": False,
         "reasons": ["target_elevation_unknown"],
     }
     attributes = measurement_attributes(reading)
@@ -111,8 +117,11 @@ def test_arpae_station_attributes_remain_station_not_local_truth(reading):
 @pytest.mark.parametrize("state", ["excluded", "unknown", None])
 def test_excluded_or_unknown_station_policy_is_not_display_permission(payload, reading, state):
     reading["use_assessment"] = {
-        "version": "station-use.v1", "state": state, "station_display": True,
-        "local_estimation": False, "hazard_confirmation": False,
+        "version": "station-use.v1",
+        "state": state,
+        "station_display": True,
+        "local_estimation": False,
+        "hazard_confirmation": False,
     }
     assert parse_snapshot(payload).places["place-1"].reading("wind_gust") is None
 

@@ -31,6 +31,7 @@ FILES = (
     "status.py",
     "manifest.json",
     "measurements.py",
+    "mobile_location.py",
     "outlook.py",
     "planning.py",
     "sensor.py",
@@ -49,6 +50,7 @@ FILES = (
     "www/setup-preview.js",
     "www/setup-tests.js",
     "www/setup.css",
+    "www/mobile-location.js",
 )
 
 

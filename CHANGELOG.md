@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0
+
+- Optional **sScape GPS** panel for personal weather and mobile alerts. Each
+  Home Assistant user pairs one of their own Companion App registrations with
+  their own sScape account using a short-lived, single-use code.
+- Separate consent for weather/alerts in Home Assistant and for the phone
+  briefing/browser push in sScape. No new shared HA entities or saved places.
+- Requires the matching server update. Existing places and entities continue
+  to work independently of mobile pairing.
+
 ## 0.6.1
 
 - Station measurements retain ground elevation, its datum and sensor height as

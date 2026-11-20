@@ -18,6 +18,13 @@ type SScapeConfigEntry = ConfigEntry[SScapeCoordinator]
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WEATHER, Platform.EVENT]
 
 
+async def async_setup(hass: HomeAssistant, _config) -> bool:
+    from .mobile_location import setup_mobile_location
+
+    await setup_mobile_location(hass)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: SScapeConfigEntry) -> bool:
     """Authenticate and fetch data before setting up any entity."""
     coordinator = SScapeCoordinator(
