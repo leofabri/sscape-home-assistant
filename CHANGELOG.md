@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1
+
+- Use the current sScape mark for the Home Assistant integration icon instead
+  of the old lightning bolt. No changes to entities or configuration.
+
 ## 0.7.0
 
 - Optional **sScape GPS** panel for personal weather and mobile alerts. Each

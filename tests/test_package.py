@@ -17,7 +17,12 @@ def test_install_zip_allowlist_and_repeatability(tmp_path):
     with ZipFile(first) as archive:
         names = archive.namelist()
         assert "custom_components/sscape/manifest.json" in names
-        assert "custom_components/sscape/brand/icon.png" in names
+        icon_path = "custom_components/sscape/brand/icon.png"
+        icon = archive.read(icon_path)
+        assert icon == (ROOT / icon_path).read_bytes()
+        assert icon[:16] == b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        assert (int.from_bytes(icon[16:20]), int.from_bytes(icon[20:24])) == (256, 256)
+        assert icon[24:26] == b"\x08\x06"  # 8-bit RGBA, including for darker themes.
         assert "custom_components/sscape/mobile_location.py" in names
         assert "custom_components/sscape/www/mobile-location.js" in names
         assert "LICENSE" in names
@@ -48,7 +53,7 @@ def test_translations_and_manifests():
 
     assert keys(english) == keys(italian)
     manifest = json.loads((component / "manifest.json").read_text())
-    assert manifest["domain"] == "sscape" and manifest["version"] == "0.7.0"
+    assert manifest["domain"] == "sscape" and manifest["version"] == "0.7.1"
     assert manifest["config_flow"] and manifest["requirements"] == []
     assert manifest["categories"] == ["weather_alerts"]
     assert manifest["documentation"] == "https://github.com/leofabri/sscape-home-assistant#readme"
